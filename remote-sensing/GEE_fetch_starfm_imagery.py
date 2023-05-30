@@ -1,7 +1,7 @@
 import ee
 import utils
 import time 
-
+import numpy as np
 utils.authorize()
 utils.print_root_assets()
 
@@ -10,7 +10,7 @@ roi_asset_path = 'projects/rangelands-explo-1571664594580/assets/Ameriflux_RS/Rw
 #start_date = '2002-01-01'
 #end_date = '2023-01-01'
 start_date = '2002-01-01'
-end_date = '2003-01-01'
+end_date = '2022-01-01'
 
 LS8_collection = 'LANDSAT/LC08/C02/T1_L2'
 LS7_collection = 'LANDSAT/LE07/C02/T1_L2'
@@ -42,6 +42,73 @@ def etmToOli(img):
   """ 
   corrected_bands = img.select(['blue', 'green', 'red', 'nir', 'swir1']).multiply(coefficients['slopes']).add(coefficients['itcps']).round().toShort()
   return img.addBands(corrected_bands, None, True)
+
+    
+def topoCorrect(image):
+  
+  elevation = ee.Image('USGS/NED')
+  elevation = elevation.reduceResolution(
+      reducer= ee.Reducer.mean(),
+      maxPixels= 1024
+    ).reproject(
+      crs=  image.projection()
+    )
+  
+  slope = ee.Terrain.slope(elevation).divide(180).multiply(np.pi);
+  aspect = ee.Terrain.aspect(elevation).divide(180).multiply(np.pi);
+  
+  #generate slope and aspect rasters
+  slope = slope.updateMask(image.select(['blue']).mask())
+  aspect = aspect.updateMask(image.select(['blue']).mask())
+  elevation = elevation.updateMask(image.select(['blue']).mask())
+  solar_z = ee.Number(90).subtract(image.getNumber("SUN_ELEVATION")).divide(180).multiply(np.pi)
+  solar_a = image.getNumber("SUN_AZIMUTH").divide(180).multiply(np.pi)
+  incidence_angle = slope.expression(
+    'acos(cos(slope) * cos( solar_z ) + (sin( solar_z ) * sin( slope ) * cos(solar_a - aspect)))', {
+    'slope' : slope,
+    'solar_z' : solar_z,
+    'solar_a' : solar_a,
+    'aspect' : aspect
+  })
+  
+  #incidence_mask = incidence_angle.select('slope').lte(1.22);
+  cos_incidence_arr = incidence_angle.cos()
+  DN_arr = image
+  combinedImage = cos_incidence_arr.addBands(DN_arr)
+  
+  def corr(bandName, acc):
+
+    bandName = ee.String(bandName) #Must cast from ee.Element to actual type
+    linearFit = combinedImage.select(['slope', bandName]).reduceRegion(
+      reducer =  ee.Reducer.linearFit(),
+      geometry = image.geometry(),
+      scale = 30,
+      )
+   
+    #store emperical parameters
+    m = linearFit.getNumber('scale')
+    b = linearFit.getNumber('offset')
+    c = b.divide(m);
+        
+    #correct surface reflectance
+    image_corr = image.select([bandName]).expression(
+    'sr * ((cos(solar_z) + c) / (cos(incidence_angle) + c))', {
+    'sr' : image.select([bandName]),
+    'solar_z' : solar_z,
+    'incidence_angle' : incidence_angle,
+    'c' : c
+    })
+
+    return ee.Image(acc).addBands(image_corr, None, True)
+    #return image
+  
+  bandNames = ee.List(image.select(['blue', 'green', 'red', 'nir', 'swir1']).bandNames())
+  
+  #correctedImage = ee.Image(bandNames.iterate(corr, ee.Image([])))
+
+  correctedImage = ee.Image(bandNames.iterate(corr, image))  
+  
+  return image.addBands(correctedImage, None, True).toInt16()
   
 def landsat_mask(img):
   """Bit masking for Landsat to remove clouds, cloud shadows, and snow
@@ -52,6 +119,8 @@ def landsat_mask(img):
   Returns:
      ee.Image
   """ 
+  roi=ee.FeatureCollection(roi_asset_path)
+  geometry = roi.geometry()
   DilatedCloud = 1 << 1
   Cirrus = 1 << 2
   CloudBitMask = 1 << 3
@@ -76,15 +145,40 @@ def landsat_mask(img):
          qa.bitwiseAnd(WaterMask).eq(0))
          
   buffered_mask = mask.focal_min(radius= 15, units= 'pixels')
-  #buffered_mask = mask 
+  
   qa_radsat = img.select('QA_RADSAT')                                      
   mask_radsat = qa_radsat.bitwiseAnd(DilatedCloud).eq(0).And(
          qa_radsat.bitwiseAnd(Cirrus).eq(0)).And(
          qa_radsat.bitwiseAnd(CloudBitMask).eq(0)).And(
          qa_radsat.bitwiseAnd(CloudShadowBitMask).eq(0)).And(  
          qa_radsat.bitwiseAnd(SnowMask).eq(0))
+  
+  maskedMask = buffered_mask.updateMask(buffered_mask)
+  
+  maskedCount = maskedMask.select(['QA_PIXEL']) \
+        .reduceRegion(reducer=ee.Reducer.count(),
+                      geometry=geometry,
+                      scale=ee.Number(30),
+                      maxPixels=ee.Number(4e10))
+
+   #count the total number of pixels
+  origCount = img.select(['blue']) \
+        .reduceRegion(reducer=ee.Reducer.count(),
+                      geometry=geometry,
+                      scale=ee.Number(30),
+                      maxPixels=ee.Number(4e10))
+
+   #calculate the percent of masked pixels
+  percent = ee.Number(origCount.get('blue'))\
+        .subtract(maskedCount.get('QA_PIXEL'))\
+        .divide(origCount.get('blue'))\
+        .multiply(100)\
+        .round()
+
+   # Return the masked image with new property and time stamp
+  return img.updateMask(buffered_mask).updateMask(mask_radsat).set('CloudSnowMaskedPercent', percent)
         
-  return img.updateMask(buffered_mask).updateMask(mask_radsat)
+  #return img.updateMask(buffered_mask).updateMask(mask_radsat)
 '''  
 def landsat_mask(img):
   CloudShadowBitMask = 1 << 3
@@ -121,7 +215,7 @@ def prepOli(img):
   #img=img.select(['B2','B3','B4','B5','B6','B7','pixel_qa'], COMMON_BAND_NAMES) 
   orig = img
   img = landsat_mask(img)
-  
+
   return ee.Image(img.copyProperties(orig, orig.propertyNames())).select(['blue', 'green', 'red', 'nir', 'swir1'])
  
 def prepEtm(img):
@@ -166,6 +260,9 @@ def filterColl (SOURCE, geometry, startdate, enddate):
   coll = ee.ImageCollection(SOURCE).filter(ee.Filter.bounds(geometry)).filterDate(startdate, enddate)
   return(coll)
 
+def clip(image):
+  roi=ee.FeatureCollection(roi_asset_path)
+  return image.clip(roi.geometry())
 
 def get_landsat(LS8_collection, LS7_collection, LS5_collection, roi_asset_path, start_date, end_date):
   """Retrieves Landsat Image Collection from Earth Engine Catalog
@@ -188,11 +285,15 @@ def get_landsat(LS8_collection, LS7_collection, LS5_collection, roi_asset_path, 
   tmCol = filterColl(LS5_collection, roi, start_date, end_date)
   #Prepare them for merging by first running the transformation functions.
   oliColR = oliCol.map(prepOli)
+  oliColR = oliColR.map(clip)
   etmColR = etmCol.map(prepEtm)
+  etmColR = etmColR.map(clip)
   tmColR = tmCol.map(prepEtm)
+  tmColR = tmColR.map(clip)
   
   # Merge the collections.
-  mercollection = oliColR.merge(etmColR).merge(tmColR).sort('system:time_start')
+  mercollection = oliColR.merge(etmColR).merge(tmColR).sort('system:time_start').filter(ee.Filter.lt('CloudSnowMaskedPercent',60))
+  mercollection = mercollection.map(topoCorrect)
 
   return mercollection  
 
@@ -328,9 +429,11 @@ def export_modis_collection(collection, roi_asset_path, bucket_name, directory_p
     
   return
   
+
   
 #modis, ids = get_MODIS(MODIS_collection, roi_asset_path, start_date, end_date)
 #export_modis_collection(modis, ids, roi_asset_path, 'rangelands', 'Ameriflux_sites/Rws_starfm/modis_test/')
+#print(ee.data.listOperations())
 
 landsat = get_landsat(LS8_collection, LS7_collection, LS5_collection, roi_asset_path, start_date, end_date)
 export_landsat_collection(landsat, roi_asset_path, 'rangelands', 'Ameriflux_sites/Rws_starfm/landsat_test/')
