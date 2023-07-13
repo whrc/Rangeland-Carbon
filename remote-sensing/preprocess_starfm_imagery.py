@@ -9,28 +9,37 @@ from scipy.stats import t
 import xarray as xr
 from matplotlib import pyplot as plt
 import seaborn as sns
+from skimage.filters import rank
+from skimage.morphology import disk
+import argparse
 
 
-storage_client = storage.Client.from_service_account_json('gee_key.json')
+storage_client = storage.Client.from_service_account_json('/home/amullen/Rangeland-Carbon/remote-sensing/gee_key.json')
 
-bucket='rangelands'
-in_landsat_dir = ''
-out_landsat_dir = ''
-in_modis_dir = 'Ameriflux_sites/Rws_starfm/modis_test/'
-out_modis_dir = 'Ameriflux_sites/Rws_starfm/modis_test_smooth/'
 path_to_temp = '/home/amullen/temp/'
 
-bucket = storage_client.get_bucket(bucket)
+def get_sfm_date_df(in_sfm_dir, bucket):
+  """gets dataframe of MODIS images with date in Y_m_d format and milliseconds, image name, and full path
 
-#########
-# skip landsat images with all zero
-# gap-fill landsat
-# 
+  Args:
+    in_modis_dir (string): path to google storage directory to list (should not include bucket name, should not start with forward slash)
+    bucket (storage.bucket): google cloud bucket
 
-########
+  Returns:
+     pandas dataframe
+  """ 
+  im_paths = utils.gs_listdir(in_sfm_dir, bucket)
+  im_paths = [k for k in im_paths if '.tif' in k]
+  
+  df_im_paths = pd.DataFrame({'im_path':im_paths})
+  df_im_paths['im_name'] = [i[-1] for i in df_im_paths['im_path'].str.split('/').to_list()]
 
-########
-#fliter modis collection
+  df_im_paths['im_date'] = pd.to_datetime(df_im_paths['im_path'].str[-14:-4], format='%Y-%m-%d')
+  df_im_paths['millis'] = df_im_paths['im_date'].astype(np.int64) / int(1e6)
+  df_im_paths = df_im_paths.set_index(df_im_paths['im_date'])
+  df_im_paths = df_im_paths.sort_index()
+  
+  return df_im_paths
 
 def get_modis_date_df(in_modis_dir, bucket):
   """gets dataframe of MODIS images with date in Y_m_d format and milliseconds, image name, and full path
@@ -76,7 +85,7 @@ def get_landsat_date_df(in_landsat_dir, bucket):
   
   return df_im_paths
  
-def lag_linregress_3D(x, y, lagx=0, lagy=0):
+def lag_linregress_3D(x, y, lagx=0, lagy=0, dim='time'):
   """
   Input: Two xr.Datarrays of any dimensions with the first dim being time. 
   Thus the input data could be a 1D time series, or for example, have three 
@@ -92,25 +101,25 @@ def lag_linregress_3D(x, y, lagx=0, lagy=0):
   #1. Ensure that the data are properly alinged to each other. 
 
   x,y = xr.align(x,y)
-
+  
   #2. Add lag information if any, and shift the data accordingly
   if lagx!=0:
   
       # If x lags y by 1, x must be shifted 1 step backwards. 
       # But as the 'zero-th' value is nonexistant, xr assigns it as invalid 
       # (nan). Hence it needs to be dropped
-      x   = x.shift(time = -lagx).dropna(dim='time')
+      x   = x.shift(time = -lagx).dropna(dim=dim)
   
       # Next important step is to re-align the two datasets so that y adjusts
       # to the changed coordinates of x
       x,y = xr.align(x,y)
   
   if lagy!=0:
-      y   = y.shift(time = -lagy).dropna(dim='time')
+      y   = y.shift(time = -lagy).dropna(dim=dim)
       x,y = xr.align(x,y)
   
   #3. Compute data length, mean and standard deviation along time axis: 
-  n = y.notnull().sum(dim='time')
+  n = y.notnull().sum(dim=dim)
   xmean = x.mean(axis=0)
   ymean = y.mean(axis=0)
   xstd  = x.std(axis=0)
@@ -135,8 +144,9 @@ def lag_linregress_3D(x, y, lagx=0, lagy=0):
   #pval   = xr.DataArray(pval, dims=cor.dims, coords=cor.coords)
   
   return cov,cor,slope,intercept,stderr 
+  
 
-def smooth_modis_col(in_modis_dir, bucket, windowsize='20d', min_periods=1):
+def smooth_modis_col(in_modis_dir, out_modis_dir, bucket, windowsize='5d', min_periods=1):
   
   """smooths MODIS collection using linear regression over a moving window
 
@@ -156,6 +166,7 @@ def smooth_modis_col(in_modis_dir, bucket, windowsize='20d', min_periods=1):
   rolling_dfs = list(df_im_paths.rolling(windowsize, center=True))
   df_im_paths = df_im_paths.reset_index(drop=True)
 
+  ref_image = rxr.open_rasterio('gs://' + bucket.name + '/' + df_im_paths.loc[0, 'im_path'])
   #create variables to hold image data for moving window
   temp_im_dict = {}
   temp_time_dict = {}
@@ -170,13 +181,13 @@ def smooth_modis_col(in_modis_dir, bucket, windowsize='20d', min_periods=1):
   nir_smooth=[]
   
   for index, row in df_im_paths.iterrows():
-    
+    print(row['im_date'])
     #target image is image being smoothed
     tgt_image = rxr.open_rasterio('gs://' + bucket.name + '/' + row['im_path'])
     tgt_image = tgt_image.astype(np.float32)
     tgt_image.values[tgt_image.values==0] = np.nan
     tgt_image_name = row['im_path'].split('/')[-1]
-
+    
     #create array to hold 'x' for prediction after linear regression. 'x' in this case is time (milliseconds)
     tgt_millis = np.full(np.shape(tgt_image[0:5]), row['millis']) 
     
@@ -200,13 +211,16 @@ def smooth_modis_col(in_modis_dir, bucket, windowsize='20d', min_periods=1):
       
         temp_im_dict[open_row['im_path']] = rxr.open_rasterio('gs://' + bucket.name + '/' + open_row['im_path'])[0:5]
         
-        if temp_im_dict[open_row['im_path']].rio.transform() != tgt_image.rio.transform():
+        if temp_im_dict[open_row['im_path']].rio.transform() != ref_image.rio.transform():
           
           print('reprojecting image')
-          temp_im_dict[open_row['im_path']] = temp_im_dict[open_row['im_path']].rio.reproject_match(tgt_image)
+          temp_im_dict[open_row['im_path']] = temp_im_dict[open_row['im_path']].rio.reproject_match(ref_image)
+        
           
         temp_im_dict[open_row['im_path']] = temp_im_dict[open_row['im_path']].astype(np.float32)
+        
         temp_im_dict[open_row['im_path']].values[temp_im_dict[open_row['im_path']].values==0]=np.nan
+        
         time = np.full(np.shape(temp_im_dict[open_row['im_path']]), open_row['millis'])
  
         temp_time_dict[open_row['im_path']] = xr.DataArray(data=time, coords=temp_im_dict[open_row['im_path']].coords)
@@ -221,11 +235,12 @@ def smooth_modis_col(in_modis_dir, bucket, windowsize='20d', min_periods=1):
     #stack images over new dimension "time" and run linear regression
     image_stack = xr.concat(list(temp_im_dict.values()), dim='time')
     time_stack = xr.concat(list(temp_time_dict.values()), dim='time')
+    
     cov,cor,slope,intercept,stderr = lag_linregress_3D(time_stack, image_stack)
     
     #predict on target image
     for i in range(0,5):
-    
+      
       tgt_image.values[i] = tgt_millis[i]*slope[i]+intercept[i]
       tgt_image.values[i][np.isnan(tgt_image.values[i])] = 0
     
@@ -238,6 +253,19 @@ def smooth_modis_col(in_modis_dir, bucket, windowsize='20d', min_periods=1):
     utils.gs_write_blob(os.path.join(path_to_temp, 'temp_gs_write.tif'), os.path.join(out_modis_dir, tgt_image_name), bucket)
       
   return
+  
+if __name__ == "__main__":
+  parser=argparse.ArgumentParser()
+  parser.add_argument("--operation", help="operation to perform (currently only supports smooth_modis)")
+  parser.add_argument("--in_modis_dir", help="directory with input modis imagery")
+  parser.add_argument("--out_modis_dir", help="directory with output modis imagery")
+  parser.add_argument("--bucket_name", help="bucket name")
 
+  args=parser.parse_args()
+  
+  bucket = storage_client.get_bucket(args.bucket_name)
 
-#smooth_modis_col(in_modis_dir, bucket)
+  if args.operation=='smooth_modis':
+    smooth_modis_col(args.in_modis_dir, args.out_modis_dir, bucket)
+
+#python preprocess_starfm_imagery.py --operation='smooth_modis' --in_modis_dir="Ameriflux_sites/Aud_starfm/modis_test/" --out_modis_dir="Ameriflux_sites/Aud_starfm/modis_test_smooth/" --bucket_name="rangelands"

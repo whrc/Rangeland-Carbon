@@ -2,27 +2,31 @@ import ee
 import utils
 import time 
 import numpy as np
+from functools import partial
+import preprocess_starfm_imagery as psi
+from google.cloud import storage
+from datetime import datetime as dt
+import sys
+import argparse
+import os
+import pandas as pd
+
 utils.authorize()
 utils.print_root_assets()
 
-roi_asset_path = 'projects/rangelands-explo-1571664594580/assets/Ameriflux_RS/Rws/Rws'
+#roi_asset_path = 'projects/rangelands-explo-1571664594580/assets/Ameriflux_RS/Rws/Rws'
 
-#start_date = '2002-01-01'
-#end_date = '2023-01-01'
 start_date = '2002-01-01'
-end_date = '2022-01-01'
+end_date = '2003-01-01'
 
 LS8_collection = 'LANDSAT/LC08/C02/T1_L2'
 LS7_collection = 'LANDSAT/LE07/C02/T1_L2'
 LS5_collection = 'LANDSAT/LT05/C02/T1_L2'
 
-#LS8_collection = 'LANDSAT/LC08/C01/T1_SR'
-#LS7_collection = 'LANDSAT/LE07/C01/T1_SR'
-#LS5_collection = 'LANDSAT/LT05/C01/T1_SR'
-
 MODIS_collection = 'MODIS/061/MCD43A4'
 COMMON_BAND_NAMES = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2', 'QA_PIXEL', 'QA_RADSAT']
-#COMMON_BAND_NAMES = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2', 'pixel_qa']
+
+
 
 #slope and intercept citation: Roy, D.P., Kovalskyy, V., Zhang, H.K., Vermote, E.F., Yan, L., Kumar, S.S, Egorov, A., 2016, Characterization of Landsat-7 to Landsat-8 reflective wavelength and normalized difference vegetation index continuity, Remote Sensing of Environment, 185, 57-70.(http://dx.doi.org/10.1016/j.rse.2015.12.024); Table 2 - reduced major axis (RMA) regression coefficients
 #Table 2 OLS regression coefficients. Band-respective coefficients are defined in the following dictionary with slope (slopes) and intercept (itcps) image constants
@@ -45,6 +49,14 @@ def etmToOli(img):
 
     
 def topoCorrect(image):
+  """Applies topographic correction to Landsat images
+
+  Args:
+    img (ee.Image): Landsat ETM image.
+
+  Returns:
+     ee.Image
+  """ 
   
   elevation = ee.Image('USGS/NED')
   elevation = elevation.reduceResolution(
@@ -100,17 +112,68 @@ def topoCorrect(image):
     })
 
     return ee.Image(acc).addBands(image_corr, None, True)
-    #return image
   
   bandNames = ee.List(image.select(['blue', 'green', 'red', 'nir', 'swir1']).bandNames())
-  
-  #correctedImage = ee.Image(bandNames.iterate(corr, ee.Image([])))
 
   correctedImage = ee.Image(bandNames.iterate(corr, image))  
   
   return image.addBands(correctedImage, None, True).toInt16()
+
+def gapfill_landsat(image, reference_collection, kernelSize=50): #kernel size 50-100 good for clouds/etc
+  """Applies gap-filling to Landsat images to fill in scanline errors and cloud gaps. Applies linear regression between reference image (without gaps) and target image (with gaps). 
+  Reference image is based on a median composite image.
+
+  Args:
+    img (ee.Image): Landsat ETM image.
+    reference_collection (ee.ImageCollection): Landsat image collection to base gap-filling on.
+    kernel_size (int), optional: Window size for linear regression. Larger kernel means larger gaps are able to be filled, but the regression may have reduced accuracy.
+
+  Returns:
+     ee.Image
+  """ 
   
-def landsat_mask(img):
+  kernel = ee.Kernel.square(kernelSize * 30, 'meters', False)
+
+  start = image.date().advance(-1, 'year')
+  end = image.date().advance(1, 'year')
+  im_month = image.date().get('month')
+  min_month=im_month.subtract(3)
+  max_month=im_month.add(3)
+  #fill = reference_collection.filter(ee.Filter.calendarRange(min_month, max_month, 'month')).filterMetadata('CLOUD_COVER', 'less_than', 5)
+  fill = reference_collection.filterDate(start, end).filterMetadata('CLOUD_COVER', 'less_than', 5)
+  fill = fill.median()#.clip(roi)
+  #fill = reference_collection.median().clip(roi)
+
+  regress = fill.addBands(image)
+
+  #extract band pairs from fill image (e.g. 'blue') and input image (e.g. 'blue_1')
+  blue_bands = regress.select(['blue','blue_1'])
+  green_bands = regress.select(['green','green_1'])
+  red_bands = regress.select(['red','red_1'])
+  nir_bands = regress.select(['nir','nir_1'])
+  swir1_bands = regress.select(['swir1','swir1_1'])
+
+  #for each band, fit linear regression for each kernel window, with fill values as x and input image values as y
+  #next, apply regression coefficients to fill image
+
+  blue_fit = blue_bands.reduceNeighborhood(ee.Reducer.linearFit(), kernel, None, False); #linear regression coefficients are calculated 
+  fill = fill.addBands(fill.select(['blue']).multiply(blue_fit.select('scale')).add(blue_fit.select('offset')), ['blue'], True)
+  green_fit = green_bands.reduceNeighborhood(ee.Reducer.linearFit(), kernel, None, False); #linear regression coefficients are calculated 
+  fill = fill.addBands(fill.select(['green']).multiply(green_fit.select('scale')).add(green_fit.select('offset')), ['green'], True)
+
+  red_fit = red_bands.reduceNeighborhood(ee.Reducer.linearFit(), kernel, None, False); #linear regression coefficients are calculated
+  fill = fill.addBands(fill.select(['red']).multiply(red_fit.select('scale')).add(red_fit.select('offset')), ['red'], True) 
+
+  nir_fit = nir_bands.reduceNeighborhood(ee.Reducer.linearFit(), kernel, None, False); #linear regression coefficients are calculated
+  fill = fill.addBands(fill.select(['nir']).multiply(nir_fit.select('scale')).add(nir_fit.select('offset')), ['nir'], True) 
+
+  swir1_fit = swir1_bands.reduceNeighborhood(ee.Reducer.linearFit(), kernel, None, False); #linear regression coefficients are calculated
+  fill = fill.addBands(fill.select(['swir1']).multiply(swir1_fit.select('scale')).add(swir1_fit.select('offset')), ['swir1'], True) 
+
+  #return image
+  return image.unmask(fill)
+  
+def landsat_mask(img, roi_asset_path):
   """Bit masking for Landsat to remove clouds, cloud shadows, and snow
 
   Args:
@@ -121,6 +184,7 @@ def landsat_mask(img):
   """ 
   roi=ee.FeatureCollection(roi_asset_path)
   geometry = roi.geometry()
+  
   DilatedCloud = 1 << 1
   Cirrus = 1 << 2
   CloudBitMask = 1 << 3
@@ -145,6 +209,10 @@ def landsat_mask(img):
          qa.bitwiseAnd(WaterMask).eq(0))
          
   buffered_mask = mask.focal_min(radius= 15, units= 'pixels')
+  
+  ndsi = (img.select('green').subtract(img.select('swir1'))).divide(img.select('green').add(img.select('swir1')))
+  snow_cover_mask = ndsi.lte(0.4);
+  buffered_mask = buffered_mask.updateMask(snow_cover_mask)
   
   qa_radsat = img.select('QA_RADSAT')                                      
   mask_radsat = qa_radsat.bitwiseAnd(DilatedCloud).eq(0).And(
@@ -179,22 +247,8 @@ def landsat_mask(img):
   return img.updateMask(buffered_mask).updateMask(mask_radsat).set('CloudSnowMaskedPercent', percent)
         
   #return img.updateMask(buffered_mask).updateMask(mask_radsat)
-'''  
-def landsat_mask(img):
-  CloudShadowBitMask = 1 << 3
-  CloudBitMask = 1 << 5
-  SnowConMask = 1 << 4
-  CloudConf = 1 << 7
-  Cirrus = 1 << 9
-  qa = img.select('pixel_qa')                                      
-  mask = qa.bitwiseAnd(CloudShadowBitMask).eq(0).And( 
-                qa.bitwiseAnd(CloudConf).eq(0)).And(
-                qa.bitwiseAnd(Cirrus).eq(0)).And(
-               qa.bitwiseAnd(CloudBitMask).eq(0)).And(
-                 qa.bitwiseAnd(SnowConMask).eq(0))                    
-  return img.updateMask(mask)
-'''  
-def prepOli(img):
+
+def prepOli(img, roi_asset_path):
   """Prepares Landsat OLI images for merging with ETM Image Collection. 
      Rescales to scale factor of 10000, maps bands to common names, and masks image
 
@@ -212,13 +266,12 @@ def prepOli(img):
   
   #filter out thermal bands
   img=img.select(['SR_B2','SR_B3','SR_B4','SR_B5','SR_B6','SR_B7','QA_PIXEL','QA_RADSAT'], COMMON_BAND_NAMES)
-  #img=img.select(['B2','B3','B4','B5','B6','B7','pixel_qa'], COMMON_BAND_NAMES) 
   orig = img
-  img = landsat_mask(img)
+  img = landsat_mask(img, roi_asset_path)
 
   return ee.Image(img.copyProperties(orig, orig.propertyNames())).select(['blue', 'green', 'red', 'nir', 'swir1'])
  
-def prepEtm(img):
+def prepEtm(img, roi_asset_path):
   """Prepares Landsat OLI images for merging with ETM Image Collection. 
      Rescales to scale factor of 10000, maps bands to common names, masks image, and harmonizes with OLI
 
@@ -239,7 +292,7 @@ def prepEtm(img):
   #img=img.select(['B1','B2','B3','B4','B5','B7','pixel_qa'], COMMON_BAND_NAMES)  
   
   orig = img;
-  img = landsat_mask(img);
+  img = landsat_mask(img, roi_asset_path);
   img = etmToOli(img);
   
   return ee.Image(img.copyProperties(orig, orig.propertyNames())).select(['blue', 'green', 'red', 'nir', 'swir1'])
@@ -260,7 +313,7 @@ def filterColl (SOURCE, geometry, startdate, enddate):
   coll = ee.ImageCollection(SOURCE).filter(ee.Filter.bounds(geometry)).filterDate(startdate, enddate)
   return(coll)
 
-def clip(image):
+def clip(image, roi_asset_path):
   roi=ee.FeatureCollection(roi_asset_path)
   return image.clip(roi.geometry())
 
@@ -280,22 +333,34 @@ def get_landsat(LS8_collection, LS7_collection, LS5_collection, roi_asset_path, 
   """ 
   
   roi=ee.FeatureCollection(roi_asset_path)
+  
   oliCol = filterColl(LS8_collection, roi, start_date, end_date)
   etmCol = filterColl(LS7_collection, roi, start_date, end_date)
   tmCol = filterColl(LS5_collection, roi, start_date, end_date)
+  
+  clip_fill = partial(clip, roi_asset_path=roi_asset_path)
+  oli_fill = partial(prepOli, roi_asset_path=roi_asset_path)
+  etm_fill = partial(prepEtm, roi_asset_path=roi_asset_path)
+  tm_fill = partial(prepEtm, roi_asset_path=roi_asset_path)
   #Prepare them for merging by first running the transformation functions.
-  oliColR = oliCol.map(prepOli)
-  oliColR = oliColR.map(clip)
-  etmColR = etmCol.map(prepEtm)
-  etmColR = etmColR.map(clip)
-  tmColR = tmCol.map(prepEtm)
-  tmColR = tmColR.map(clip)
+  
+  oliColR = oliCol.map(oli_fill)
+  oliColR = oliColR.map(clip_fill)
+  
+  etmColR = etmCol.map(etm_fill)
+  etmColR = etmColR.map(clip_fill)
+  
+  tmColR = tmCol.map(tm_fill)
+  tmColR = tmColR.map(clip_fill)
   
   # Merge the collections.
   mercollection = oliColR.merge(etmColR).merge(tmColR).sort('system:time_start').filter(ee.Filter.lt('CloudSnowMaskedPercent',60))
-  mercollection = mercollection.map(topoCorrect)
+  #mercollection = mercollection.map(topoCorrect)
+  
+  fill_function = partial(gapfill_landsat, reference_collection=mercollection, kernelSize=50)
+  gap_filled_collection = mercollection.map(fill_function)
 
-  return mercollection  
+  return gap_filled_collection  
 
 def MODIS_mask(img):
   """Bit masking for MODIS to remove low quality retrievals
@@ -332,6 +397,10 @@ def MODIS_mask(img):
   img = img.select(['Nadir_Reflectance_Band1','Nadir_Reflectance_Band2','Nadir_Reflectance_Band3',
                 'Nadir_Reflectance_Band4','Nadir_Reflectance_Band5','Nadir_Reflectance_Band6',
                 'Nadir_Reflectance_Band7']).updateMask(b1_mask).updateMask(b2_mask).updateMask(b3_mask).updateMask(b4_mask).updateMask(b5_mask).updateMask(b6_mask).updateMask(b7_mask)
+                
+  ndsi = (img.select('Nadir_Reflectance_Band4').subtract(img.select('Nadir_Reflectance_Band6'))).divide(img.select('Nadir_Reflectance_Band4').add(img.select('Nadir_Reflectance_Band6')))
+  snow_cover_mask = ndsi.lte(0.4);
+  img = img.updateMask(snow_cover_mask)
   
   return img
 
@@ -360,6 +429,17 @@ def get_MODIS(MODIS_collection, roi_asset_path, start_date, end_date):
 
   return MODIS_export
 
+def get_gee_queue():
+
+  ops = ee.data.listOperations()
+  ids = [ op['name'] for op in ops ]
+  state = [ op['metadata']['state'] for op in ops ]
+  op_df = pd.DataFrame({'name': ids, 'state': state})
+  queue_len = len(op_df[(op_df['state']=='PENDING') | (op_df['state']=='RUNNING')])
+  available_slots = 3000-queue_len
+  
+  return available_slots
+
 def export_landsat_collection(collection, roi_asset_path, bucket_name, directory_path):
   """Exports landsat image collection to google storage bucket
 
@@ -376,67 +456,137 @@ def export_landsat_collection(collection, roi_asset_path, bucket_name, directory
   count = int(collection.size().getInfo())
   names = collection.aggregate_array('system:index').getInfo()
   
+  if len(names)==0:
+    return ([], [])
+    
+  df_im_paths = pd.DataFrame({'name':names})
+  dates = pd.to_datetime(df_im_paths['name'].str[-8:], format='%Y%m%d').dt.strftime('%Y_%m_%d').to_list()
+  available_slots = get_gee_queue()
+  task_ids=[]
+  
   for i in range(0, count):
   
-    image = collection.filter(ee.Filter.eq('system:index', names[i])).first()
-    print()
-    print('exporting {} of {}: {}'.format(i+1, count, names[i]))
-    task = ee.batch.Export.image.toCloudStorage(
-              image=image,
-              scale=30,
-              crs='EPSG:4326',
-              region=roi.geometry(),
-              bucket=bucket_name,
-              fileNamePrefix='{}{}'.format(directory_path, names[i]))
-            
-    task.start()
+    if available_slots<=0:
+      print('GEE queue full, waiting')
+      time.sleep(300)
+      available_slots = get_gee_queue()
+      
+    if available_slots>0:
+      image = collection.filter(ee.Filter.eq('system:index', names[i])).first()
+      print()
+      print('submitting landsat export task for {}'.format(names[i]))
+      task = ee.batch.Export.image.toCloudStorage(
+                image=image,
+                scale=30,
+                crs='EPSG:4326',
+                region=roi.geometry(),
+                bucket=bucket_name,
+                fileNamePrefix='{}{}'.format(directory_path, names[i]))
+              
+      task.start()
+      task_ids.append(task.id)
+      available_slots-=1
   
-  return
-    
-def export_modis_collection(collection, roi_asset_path, bucket_name, directory_path):
-  """Exports MODIS image collection to google storage bucket
+  return dates, task_ids
+
+def export_modis_collection(modis_collection, roi_asset_path, bucket_name, out_directory_path, landsat_dates=[], landsat_dir=None):
+  """Exports MODIS image collection to google storage bucket. Exports images matching landsat acquisitions and every five days.
 
   Args:
     collection (ee.ImageCollection): MODIS image collection.
     roi_asset_path (string): path to roi Earth Engine Asset
     bucket_name (string): google storage bucket name
-    directory_path (string): path to directory to store
+    out_directory_path (string): path to directory to store
 
   Returns:
      None
   """ 
+  storage_client = storage.Client.from_service_account_json('gee_key.json')
+  bucket = storage_client.get_bucket(bucket_name)
   
   roi=ee.FeatureCollection(roi_asset_path)
-  count = int(collection.size().getInfo())
-  names = collection.aggregate_array('system:index').getInfo()
+  count = int(modis_collection.size().getInfo())
+  names = modis_collection.aggregate_array('system:index').getInfo()
   
+  if len(names)==0:
+    return []
+  
+  task_ids=[]
+  
+  if landsat_dir is not None:
+    landsat_df = psi.get_landsat_date_df(landsat_dir, bucket)
+    landsat_dates = landsat_df['im_date'].dt.strftime('%Y_%m_%d').to_list()
+  
+  available_slots = get_gee_queue()
+  landsat_dates
   for i in range(0, count):
-  
-    image = collection.filter(ee.Filter.eq('system:index', names[i])).first()
-    print()
-    print('exporting {} of {}: {}'.format(i+1, count, names[i]))
-    task = ee.batch.Export.image.toCloudStorage(
-              image=image,
-              scale=30,
-              #crs=image.projection().crs(),
-              #crsTransform = image.projection().getInfo()['transform'],
-              crs='EPSG:4326',
-              region=roi.geometry(),
-              bucket=bucket_name,
-              fileNamePrefix='{}MCD43A4_{}'.format(directory_path, names[i]))
-            
-    task.start()
     
-  return
+    if names[i] in landsat_dates or i%5==0:
+      
+      if available_slots<=0:
+        print('GEE queue full, waiting')
+        time.sleep(300)
+        available_slots = get_gee_queue()
+        
+      if available_slots>0:
+        image = modis_collection.filter(ee.Filter.eq('system:index', names[i])).first()
+        print()
+        print('submitting MODIS export task for {}'.format(names[i]))
+        task = ee.batch.Export.image.toCloudStorage(
+                  image=image,
+                  scale=30,
+                  #crs=image.projection().crs(),
+                  #crsTransform = image.projection().getInfo()['transform'],
+                  crs='EPSG:4326',
+                  region=roi.geometry(),
+                  bucket=bucket_name,
+                  fileNamePrefix='{}MCD43A4_{}'.format(out_directory_path, names[i]))
+        task.start()
+        task_ids.append(task.id)
+        available_slots-=1
+        
+  return task_ids
   
 
-  
-#modis, ids = get_MODIS(MODIS_collection, roi_asset_path, start_date, end_date)
-#export_modis_collection(modis, ids, roi_asset_path, 'rangelands', 'Ameriflux_sites/Rws_starfm/modis_test/')
-#print(ee.data.listOperations())
 
-landsat = get_landsat(LS8_collection, LS7_collection, LS5_collection, roi_asset_path, start_date, end_date)
-export_landsat_collection(landsat, roi_asset_path, 'rangelands', 'Ameriflux_sites/Rws_starfm/landsat_test/')
+if __name__ == "__main__":
+  parser=argparse.ArgumentParser()
+  parser.add_argument("--which", help="whether to fetch and download landsat, modis, or both")
+  parser.add_argument("--out_directory", help="path to export imagery subdirectories")
+  parser.add_argument("--bucket_name", help="bucket name")
+  parser.add_argument("--roi_asset_path", help="path to roi Earth Engine Asset")
+
+  args=parser.parse_args()
+  
+  if args.which=='landsat':
+    landsat = get_landsat(LS8_collection, LS7_collection, LS5_collection, args.roi_asset_path, start_date, end_date)
+    export_landsat_collection(landsat, args.roi_asset_path, args.bucket_name, os.path.join(args.out_directory, 'landsat_test/'))
+    
+  if args.which=='modis':
+    modis = get_MODIS(MODIS_collection, args.roi_asset_path, start_date, end_date)
+    export_modis_collection(modis, args.roi_asset_path, args.bucket_name, os.path.join(args.out_directory, 'modis_test/'), landsat_dir = os.path.join(args.out_directory, 'landsat_test/'))
+    
+  if args.which=='both':
+    
+    landsat = get_landsat(LS8_collection, LS7_collection, LS5_collection, args.roi_asset_path, start_date, end_date)
+    landsat_dates, landsat_task_ids = export_landsat_collection(landsat, args.roi_asset_path, args.bucket_name, os.path.join(args.out_directory, 'landsat_test/'))
+    
+    modis = get_MODIS(MODIS_collection, args.roi_asset_path, start_date, end_date)
+    modis_task_ids = export_modis_collection(modis, args.roi_asset_path, args.bucket_name, os.path.join(args.out_directory, 'modis_test/'), landsat_dates=landsat_dates)  
+    
+        
+
+#python GEE_fetch_starfm_imagery.py --which='landsat' --out_directory='Ameriflux_sites/Cop_starfm/' --bucket_name='rangelands' --roi_asset_path='projects/rangelands-explo-1571664594580/assets/Ameriflux_RS/Cop/Cop'
+
+#python GEE_fetch_starfm_imagery.py --which='modis' --out_directory='Ameriflux_sites/BRG_starfm/' --bucket_name='rangelands' --roi_asset_path='projects/rangelands-explo-1571664594580/assets/Ameriflux_RS/BRG/BRG'
+
+#modis = get_MODIS(MODIS_collection, roi_asset_path, start_date, end_date)
+#export_modis_collection(modis, roi_asset_path, 'rangelands', 'Ameriflux_sites/Rws_starfm/modis_test/', 'Ameriflux_sites/Rws_starfm/landsat_test/')
+  
+
+
+#landsat = get_landsat(LS8_collection, LS7_collection, LS5_collection, roi_asset_path, start_date, end_date)
+#export_landsat_collection(landsat, roi_asset_path, 'rangelands', 'Ameriflux_sites/Rws_starfm/landsat_test_no_topo/')
 
 
        
