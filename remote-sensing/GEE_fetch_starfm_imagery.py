@@ -17,7 +17,7 @@ utils.print_root_assets()
 #roi_asset_path = 'projects/rangelands-explo-1571664594580/assets/Ameriflux_RS/Rws/Rws'
 
 start_date = '2002-01-01'
-end_date = '2003-01-01'
+end_date = '2023-01-01'
 
 LS8_collection = 'LANDSAT/LC08/C02/T1_L2'
 LS7_collection = 'LANDSAT/LE07/C02/T1_L2'
@@ -147,19 +147,19 @@ def gapfill_landsat(image, reference_collection, kernelSize=50): #kernel size 50
   regress = fill.addBands(image)
 
   #extract band pairs from fill image (e.g. 'blue') and input image (e.g. 'blue_1')
-  blue_bands = regress.select(['blue','blue_1'])
-  green_bands = regress.select(['green','green_1'])
+  #blue_bands = regress.select(['blue','blue_1'])
+  #green_bands = regress.select(['green','green_1'])
   red_bands = regress.select(['red','red_1'])
   nir_bands = regress.select(['nir','nir_1'])
-  swir1_bands = regress.select(['swir1','swir1_1'])
+  #swir1_bands = regress.select(['swir1','swir1_1'])
 
   #for each band, fit linear regression for each kernel window, with fill values as x and input image values as y
   #next, apply regression coefficients to fill image
 
-  blue_fit = blue_bands.reduceNeighborhood(ee.Reducer.linearFit(), kernel, None, False); #linear regression coefficients are calculated 
-  fill = fill.addBands(fill.select(['blue']).multiply(blue_fit.select('scale')).add(blue_fit.select('offset')), ['blue'], True)
-  green_fit = green_bands.reduceNeighborhood(ee.Reducer.linearFit(), kernel, None, False); #linear regression coefficients are calculated 
-  fill = fill.addBands(fill.select(['green']).multiply(green_fit.select('scale')).add(green_fit.select('offset')), ['green'], True)
+  #blue_fit = blue_bands.reduceNeighborhood(ee.Reducer.linearFit(), kernel, None, False); #linear regression coefficients are calculated 
+  #fill = fill.addBands(fill.select(['blue']).multiply(blue_fit.select('scale')).add(blue_fit.select('offset')), ['blue'], True)
+  #green_fit = green_bands.reduceNeighborhood(ee.Reducer.linearFit(), kernel, None, False); #linear regression coefficients are calculated 
+  #fill = fill.addBands(fill.select(['green']).multiply(green_fit.select('scale')).add(green_fit.select('offset')), ['green'], True)
 
   red_fit = red_bands.reduceNeighborhood(ee.Reducer.linearFit(), kernel, None, False); #linear regression coefficients are calculated
   fill = fill.addBands(fill.select(['red']).multiply(red_fit.select('scale')).add(red_fit.select('offset')), ['red'], True) 
@@ -167,10 +167,9 @@ def gapfill_landsat(image, reference_collection, kernelSize=50): #kernel size 50
   nir_fit = nir_bands.reduceNeighborhood(ee.Reducer.linearFit(), kernel, None, False); #linear regression coefficients are calculated
   fill = fill.addBands(fill.select(['nir']).multiply(nir_fit.select('scale')).add(nir_fit.select('offset')), ['nir'], True) 
 
-  swir1_fit = swir1_bands.reduceNeighborhood(ee.Reducer.linearFit(), kernel, None, False); #linear regression coefficients are calculated
-  fill = fill.addBands(fill.select(['swir1']).multiply(swir1_fit.select('scale')).add(swir1_fit.select('offset')), ['swir1'], True) 
+  #swir1_fit = swir1_bands.reduceNeighborhood(ee.Reducer.linearFit(), kernel, None, False); #linear regression coefficients are calculated
+  #fill = fill.addBands(fill.select(['swir1']).multiply(swir1_fit.select('scale')).add(swir1_fit.select('offset')), ['swir1'], True) 
 
-  #return image
   return image.unmask(fill)
   
 def landsat_mask(img, roi_asset_path):
@@ -269,7 +268,8 @@ def prepOli(img, roi_asset_path):
   orig = img
   img = landsat_mask(img, roi_asset_path)
 
-  return ee.Image(img.copyProperties(orig, orig.propertyNames())).select(['blue', 'green', 'red', 'nir', 'swir1'])
+  #return ee.Image(img.copyProperties(orig, orig.propertyNames())).select(['blue', 'green', 'red', 'nir', 'swir1'])
+  return ee.Image(img.copyProperties(orig, orig.propertyNames())).select(['red', 'nir'])
  
 def prepEtm(img, roi_asset_path):
   """Prepares Landsat OLI images for merging with ETM Image Collection. 
@@ -295,7 +295,8 @@ def prepEtm(img, roi_asset_path):
   img = landsat_mask(img, roi_asset_path);
   img = etmToOli(img);
   
-  return ee.Image(img.copyProperties(orig, orig.propertyNames())).select(['blue', 'green', 'red', 'nir', 'swir1'])
+  #return ee.Image(img.copyProperties(orig, orig.propertyNames())).select(['blue', 'green', 'red', 'nir', 'swir1'])
+  return ee.Image(img.copyProperties(orig, orig.propertyNames())).select(['red', 'nir'])
 
 def filterColl (SOURCE, geometry, startdate, enddate):
   """Retrieves Image Collection from Earth Engine Catalog
@@ -403,8 +404,7 @@ def MODIS_mask(img):
   img = img.updateMask(snow_cover_mask)
   
   return img
-
-
+  
 
 def get_MODIS(MODIS_collection, roi_asset_path, start_date, end_date):
   """Retrieves MODIS Image Collection from Earth Engine Catalog
@@ -423,7 +423,9 @@ def get_MODIS(MODIS_collection, roi_asset_path, start_date, end_date):
   roi=ee.FeatureCollection(roi_asset_path)
   MODIS = filterColl(MODIS_collection, roi, start_date, end_date)
   MODIS = MODIS.map(MODIS_mask)
-  MODIS_export = MODIS.select(['Nadir_Reflectance_Band3','Nadir_Reflectance_Band4','Nadir_Reflectance_Band1', 'Nadir_Reflectance_Band2', 'Nadir_Reflectance_Band6'],['blue', 'green', 'red', 'nir', 'swir1'])
+  #MODIS_export = MODIS.select(['Nadir_Reflectance_Band3','Nadir_Reflectance_Band4','Nadir_Reflectance_Band1', 'Nadir_Reflectance_Band2', 'Nadir_Reflectance_Band6'],['blue', 'green', 'red', 'nir', 'swir1'])
+  
+  MODIS_export = MODIS.select(['Nadir_Reflectance_Band1', 'Nadir_Reflectance_Band2'],['red', 'nir'])
   
   names = MODIS.sort('system:time_start').aggregate_array('system:index').getInfo()
 
@@ -455,7 +457,7 @@ def export_landsat_collection(collection, roi_asset_path, bucket_name, directory
   roi=ee.FeatureCollection(roi_asset_path)
   count = int(collection.size().getInfo())
   names = collection.aggregate_array('system:index').getInfo()
-  
+  export_names = ['_'.join(name.split('_')[-3:]) for name in names]
   if len(names)==0:
     return ([], [])
     
@@ -474,14 +476,14 @@ def export_landsat_collection(collection, roi_asset_path, bucket_name, directory
     if available_slots>0:
       image = collection.filter(ee.Filter.eq('system:index', names[i])).first()
       print()
-      print('submitting landsat export task for {}'.format(names[i]))
+      print('submitting landsat export task for {}'.format(export_names[i]))
       task = ee.batch.Export.image.toCloudStorage(
                 image=image,
                 scale=30,
                 crs='EPSG:4326',
                 region=roi.geometry(),
                 bucket=bucket_name,
-                fileNamePrefix='{}{}'.format(directory_path, names[i]))
+                fileNamePrefix='{}{}'.format(directory_path, export_names[i]))
               
       task.start()
       task_ids.append(task.id)
