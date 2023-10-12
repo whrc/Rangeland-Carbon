@@ -32,6 +32,7 @@ def get_sfm_date_df(in_sfm_dir, bucket):
   im_paths = [k for k in im_paths if '.tif' in k]
   
   df_im_paths = pd.DataFrame({'im_path':im_paths})
+  
   df_im_paths['im_name'] = [i[-1] for i in df_im_paths['im_path'].str.split('/').to_list()]
 
   df_im_paths['im_date'] = pd.to_datetime(df_im_paths['im_path'].str[-14:-4], format='%Y-%m-%d')
@@ -146,9 +147,10 @@ def lag_linregress_3D(x, y, lagx=0, lagy=0, dim='time'):
   return cov,cor,slope,intercept,stderr 
   
 
-def smooth_modis_col(in_modis_dir, out_modis_dir, bucket, windowsize='5d', min_periods=1):
+def smooth_modis_col(in_modis_dir, out_modis_dir, bucket, windowsize='20d', min_periods=1):
   
   """smooths MODIS collection using linear regression over a moving window
+      Initial window size 20d
 
   Args:
     in_modis_dir (string): path to google storage directory containing only modis images (should not include bucket name, should not start with forward slash)
@@ -161,7 +163,6 @@ def smooth_modis_col(in_modis_dir, out_modis_dir, bucket, windowsize='5d', min_p
   """ 
   
   df_im_paths = get_modis_date_df(in_modis_dir, bucket)
-
   #build rolling window for image names
   rolling_dfs = list(df_im_paths.rolling(windowsize, center=True))
   df_im_paths = df_im_paths.reset_index(drop=True)
@@ -170,18 +171,9 @@ def smooth_modis_col(in_modis_dir, out_modis_dir, bucket, windowsize='5d', min_p
   #create variables to hold image data for moving window
   temp_im_dict = {}
   temp_time_dict = {}
-  
-  blue=[]
-  blue_smooth=[]
-  green=[]
-  green_smooth=[]
-  red=[]
-  red_smooth=[]
-  nir=[]
-  nir_smooth=[]
-  
+
   for index, row in df_im_paths.iterrows():
-    print(row['im_date'])
+    print('target image: {}'.format(row['im_date']))
     #target image is image being smoothed
     tgt_image = rxr.open_rasterio('gs://' + bucket.name + '/' + row['im_path'])
     tgt_image = tgt_image.astype(np.float32)
@@ -239,9 +231,10 @@ def smooth_modis_col(in_modis_dir, out_modis_dir, bucket, windowsize='5d', min_p
     cov,cor,slope,intercept,stderr = lag_linregress_3D(time_stack, image_stack)
     
     #predict on target image
-    for i in range(0,5):
+    for i in range(0,2):
       
-      tgt_image.values[i] = tgt_millis[i]*slope[i]+intercept[i]
+      pred = tgt_millis[i]*slope[i]+intercept[i]
+      tgt_image.values[i][np.isnan(tgt_image.values[i])] = pred.values[np.isnan(tgt_image.values[i])]
       tgt_image.values[i][np.isnan(tgt_image.values[i])] = 0
     
     if np.nanmax(tgt_image.values[0])==0:

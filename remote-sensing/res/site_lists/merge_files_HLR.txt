@@ -1,0 +1,16 @@
+/vsigs/rangelands/Ranch_Runs/HLR/D12/covariates_nc/D12_ndvi.nc
+/vsigs/rangelands/Ranch_Runs/HLR/E12/covariates_nc/E12_ndvi.nc
+/vsigs/rangelands/Ranch_Runs/HLR/F12/covariates_nc/F12_ndvi.nc
+/vsigs/rangelands/Ranch_Runs/HLR/D11/covariates_nc/D11_ndvi.nc
+/vsigs/rangelands/Ranch_Runs/HLR/E11/covariates_nc/E11_ndvi.nc
+/vsigs/rangelands/Ranch_Runs/HLR/F11/covariates_nc/F11_ndvi.nc
+/vsigs/rangelands/Ranch_Runs/HLR/D10/covariates_nc/D10_ndvi.nc
+/vsigs/rangelands/Ranch_Runs/HLR/E10/covariates_nc/E10_ndvi.nc
+/vsigs/rangelands/Ranch_Runs/HLR/F10/covariates_nc/F10_ndvi.nc
+/vsigs/rangelands/Ranch_Runs/HLR/D9/covariates_nc/D9_ndvi.nc
+/vsigs/rangelands/Ranch_Runs/HLR/E9/covariates_nc/E9_ndvi.nc
+/vsigs/rangelands/Ranch_Runs/HLR/F9/covariates_nc/F9_ndvi.nc
+/vsigs/rangelands/Ranch_Runs/HLR/E8/covariates_nc/E8_ndvi.nc
+/vsigs/rangelands/Ranch_Runs/HLR/F8/covariates_nc/F8_ndvi.nc
+/vsigs/rangelands/Ranch_Runs/HLR/F7/covariates_nc/F7_ndvi.nc
+/vsigs/rangelands/Ranch_Runs/HLR/E7/covariates_nc/E7_ndvi.nc

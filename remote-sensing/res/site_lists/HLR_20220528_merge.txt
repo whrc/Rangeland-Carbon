@@ -1,0 +1,16 @@
+/vsigs/rangelands/Ranch_Runs/HLR/D12/starfm/modpred_2022-05-28.tif
+/vsigs/rangelands/Ranch_Runs/HLR/E12/starfm/modpred_2022-05-28.tif
+/vsigs/rangelands/Ranch_Runs/HLR/F12/starfm/modpred_2022-05-28.tif
+/vsigs/rangelands/Ranch_Runs/HLR/D11/starfm/modpred_2022-05-28.tif
+/vsigs/rangelands/Ranch_Runs/HLR/E11/starfm/modpred_2022-05-28.tif
+/vsigs/rangelands/Ranch_Runs/HLR/F11/starfm/modpred_2022-05-28.tif
+/vsigs/rangelands/Ranch_Runs/HLR/D10/starfm/modpred_2022-05-28.tif
+/vsigs/rangelands/Ranch_Runs/HLR/E10/starfm/modpred_2022-05-28.tif
+/vsigs/rangelands/Ranch_Runs/HLR/F10/starfm/modpred_2022-05-28.tif
+/vsigs/rangelands/Ranch_Runs/HLR/D9/starfm/modpred_2022-05-28.tif
+/vsigs/rangelands/Ranch_Runs/HLR/E9/starfm/modpred_2022-05-28.tif
+/vsigs/rangelands/Ranch_Runs/HLR/F9/starfm/modpred_2022-05-28.tif
+/vsigs/rangelands/Ranch_Runs/HLR/E8/starfm/modpred_2022-05-28.tif
+/vsigs/rangelands/Ranch_Runs/HLR/F8/starfm/modpred_2022-05-28.tif
+/vsigs/rangelands/Ranch_Runs/HLR/F7/starfm/modpred_2022-05-28.tif
+/vsigs/rangelands/Ranch_Runs/HLR/E7/starfm/modpred_2022-05-28.tif

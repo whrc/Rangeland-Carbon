@@ -1,0 +1,16 @@
+projects/rangelands-explo-1571664594580/assets/Ranches/HLR/D12
+projects/rangelands-explo-1571664594580/assets/Ranches/HLR/E12
+projects/rangelands-explo-1571664594580/assets/Ranches/HLR/F12
+projects/rangelands-explo-1571664594580/assets/Ranches/HLR/D11
+projects/rangelands-explo-1571664594580/assets/Ranches/HLR/E11
+projects/rangelands-explo-1571664594580/assets/Ranches/HLR/F11
+projects/rangelands-explo-1571664594580/assets/Ranches/HLR/D10
+projects/rangelands-explo-1571664594580/assets/Ranches/HLR/E10
+projects/rangelands-explo-1571664594580/assets/Ranches/HLR/F10
+projects/rangelands-explo-1571664594580/assets/Ranches/HLR/D9
+projects/rangelands-explo-1571664594580/assets/Ranches/HLR/E9
+projects/rangelands-explo-1571664594580/assets/Ranches/HLR/F9
+projects/rangelands-explo-1571664594580/assets/Ranches/HLR/E8
+projects/rangelands-explo-1571664594580/assets/Ranches/HLR/F8
+projects/rangelands-explo-1571664594580/assets/Ranches/HLR/F7
+projects/rangelands-explo-1571664594580/assets/Ranches/HLR/E7

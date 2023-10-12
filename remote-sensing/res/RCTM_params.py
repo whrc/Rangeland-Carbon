@@ -1,3 +1,0 @@
-ameriflux_site_pfts = {'grass': ['A32', 'AR1', 'AR2','ARb','ARc', 'Aud', 'Bkg', 'BMM', 'BRG', 'Ctn', 'Dia', 'FPe', 'Hn2',  'IB2', 'KFS', 'KLS', 'KM2' ,'KM3', 'KM4', 'Kon', 'LS1', 'RFW', 'Ro4','SCg', 'SdH', 'Seg', 'Shd', 'Snd', 'Snf', 'Var', 'Wjs', 'xAE', 'xCP', 'xDC', 'xKA', 'xKZ', 'xNG', 'xWD'],
-                        'grass-shrub': ['Cop', 'LS2', 'Seg', 'SRM', 'Wkg', 'Jo1', 'Rws', 'Ses', 'xJR', 'xMB', 'xNQ', 'Wdn', 'Rwe', 'Rms', 'Rls','RIs', 'Rwf', 'Hn3', 'xYE','Hn3'],
-                        'tree':['CZ1', 'Fwf', 'Mpj', 'Ton', 'xCL', 'xSJ', 'Tx1', 'Tx2']}

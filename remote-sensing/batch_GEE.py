@@ -21,13 +21,12 @@ LS5_collection = 'LANDSAT/LT05/C02/T1_L2' #do not change
 MODIS_collection = 'MODIS/061/MCD43A4' #do not change
 
 bucket_name='rangelands'
-path_to_footprint_list = 'res/sites_brg.txt'
 storage_client = storage.Client.from_service_account_json('/home/amullen/Rangeland-Carbon/remote-sensing/gee_key.json')
 
 bad_sites=['Kon']
 
 def initialize_batch_with_rois(roi_file, status_filename):
-  with open(path_to_footprint_list) as f:
+  with open(roi_file) as f:
   
     sites = [line.rstrip('\n') for line in f]
     #print('sites: {}'.format(sites))
@@ -37,7 +36,7 @@ def initialize_batch_with_rois(roi_file, status_filename):
     if site in bad_sites:
         geometries.append('')
         continue
-    roi_asset_path = 'projects/rangelands-explo-1571664594580/assets/Ameriflux_RS/{}/{}'.format(site, site)
+    roi_asset_path = site
     roi=ee.FeatureCollection(roi_asset_path)
     geometries.append(roi.geometry().getInfo())
   
@@ -46,7 +45,7 @@ def initialize_batch_with_rois(roi_file, status_filename):
   df_process_status['geometry']=geometries
   print(df_process_status)
   
-  df_process_status.to_csv(status_filename)
+  df_process_status.to_csv(status_filename, index=False)
   
   return
 
@@ -73,7 +72,7 @@ def poll_for_success(task_ids):
       
   return success, failed
 
-def batch(status_filename):
+def batch(status_filename, prefix):
 
   df_process_stats=pd.read_csv(status_filename)
   
@@ -87,17 +86,18 @@ def batch(status_filename):
     if row['roi'] in bad_sites:
       continue
     
+    site = row['roi'].split('/')[-1]
     #get roi asset path  
-    roi_asset_path = 'projects/rangelands-explo-1571664594580/assets/Ameriflux_RS/{}/{}'.format(row['roi'], row['roi'])
+    roi_asset_path = row['roi']
     
     #get landsat
-    landsat_out_dir = 'Ameriflux_sites/{}_starfm/landsat_test/'.format(row['roi'])
+    landsat_out_dir = f'{prefix}/{site}_starfm/landsat_test_v2/'
     landsat = fsi.get_landsat(LS8_collection, LS7_collection, LS5_collection, roi_asset_path, start_date, end_date)
-    landsat_dates, landsat_task_ids = fsi.export_landsat_collection(landsat, roi_asset_path,bucket_name, landsat_out_dir)
+    landsat_dates, landsat_task_ids = fsi.export_landsat_collection(landsat, roi_asset_path,bucket_name, landsat_out_dir, overwrite=False)
     df_process_stats.loc[index,'landsat_total'] = len(landsat_task_ids)
      
     #get modis   
-    modis_out_dir = 'Ameriflux_sites/{}_starfm/modis_test/'.format(row['roi'])
+    modis_out_dir = f'{prefix}/{site}_starfm/modis_test_v2/'
     modis = fsi.get_MODIS(MODIS_collection, roi_asset_path, start_date, end_date)
     modis_task_ids = fsi.export_modis_collection(modis, roi_asset_path, bucket_name, modis_out_dir, landsat_dates=landsat_dates)
     df_process_stats.loc[index,'modis_total'] = len(modis_task_ids) 
@@ -115,12 +115,20 @@ def batch(status_filename):
     print('success')
     
     df_process_stats.loc[index,'imagery_downloaded'] = dt.now() 
-    df_process_stats.to_csv(status_filename)
+    df_process_stats.to_csv(status_filename, index=False)
     
     
-    
+if __name__ == "__main__":
+  parser=argparse.ArgumentParser()
+  parser.add_argument("--init", action='store_true', help='Use flag if running the batch task for the first time. Creates new status file.')
+  parser.add_argument("--footprint_list", help="List of footprints to download imagery for")
+  parser.add_argument("--status_file", help="GEE task status file")
+  parser.add_argument("--prefix", help="path to export imagery subdirectories")
 
-    
-#initialize_batch_with_rois(path_to_footprint_list, 'ameriflux_processing_status.csv')
-
-batch('ameriflux_processing_status.csv')
+  args=parser.parse_args()
+  
+  if args.init:
+    initialize_batch_with_rois(args.footprint_list, args.status_file)
+     
+  batch(args.status_file, args.prefix)
+  
