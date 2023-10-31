@@ -1,7 +1,6 @@
 from google.cloud import storage
 import rioxarray as rxr
 import os
-import utils
 import pandas as pd
 import numpy as np
 from itertools import chain
@@ -12,9 +11,12 @@ import seaborn as sns
 from skimage.filters import rank
 from skimage.morphology import disk
 import argparse
+import sys
+sys.path.insert(1, '../utils')
+import utils
 
 
-storage_client = storage.Client.from_service_account_json('/home/amullen/Rangeland-Carbon/remote-sensing/gee_key.json')
+storage_client = storage.Client.from_service_account_json('/home/amullen/Rangeland-Carbon/res/gee_key.json')
 
 path_to_temp = '/home/amullen/temp/'
 

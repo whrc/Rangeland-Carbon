@@ -16,7 +16,9 @@ import argparse
 storage_client = storage.Client.from_service_account_json('/home/amullen/Rangeland-Carbon/remote-sensing/gee_key.json')
 
 
-def get_runlist(in_modis_dir, in_landsat_dir, sfm_out_dir, bucket_name, modland_match_tol=0, modpred_match_tol=15): 
+def get_runlist(in_modis_dir, in_landsat_dir, sfm_out_dir, bucket_name, modland_match_tol=0, modpred_match_tol=365):
+
+  #initial modpred_match_tol = 15 
   print('getting runlist')
   bucket = storage_client.get_bucket(bucket_name)
   
@@ -49,8 +51,8 @@ def get_runlist(in_modis_dir, in_landsat_dir, sfm_out_dir, bucket_name, modland_
   
   #filter matching imagery based on tolerance (minimum should always be zero so may replace this + previous block with intersect on date)
   df_modfiles=df_modfiles[df_modfiles['landsat_timediff']<=modland_match_tol]
-  
-  df_modpred['outname'] = sfm_out_dir + 'modpred_'+ df_modpred['im_date'].astype(str) + '.tif'
+  out_dir_seires = pd.Series([sfm_out_dir]*len(df_modpred))
+  df_modpred['outname'] = out_dir_seires.str.cat( 'modpred_'+ df_modpred['im_date'].astype(str) + '.tif', sep=os.sep)
   df_modpred['landsat1'] = [None]*len(df_modpred)
   df_modpred['landsat2'] = [None]*len(df_modpred)
   df_modpred['modland1'] = [None]*len(df_modpred)
@@ -99,14 +101,16 @@ def get_runlist(in_modis_dir, in_landsat_dir, sfm_out_dir, bucket_name, modland_
   
 def select_bands(rxr_data, source_path):
     
-    rxr_data = rxr_data.sel(band=[1, 3, 4])
-    rxr_data.attrs['long_name'] = ["blue","red","nir"]
+    #rxr_data = rxr_data.sel(band=[1, 3, 4])
+    #rxr_data.attrs['long_name'] = ["blue","red","nir"]
+    rxr_data = rxr_data.sel(band=[1, 2])
+    rxr_data.attrs['long_name'] = ['red','nir']
     
     return rxr_data
 
 def resample_and_save(source_path, out_path, target_xds = None, landsat1=False):
   
-  bands = ['blue', 'red', 'nir']
+  bands = ['red', 'nir']
   source = rxr.open_rasterio(source_path, chunks='auto')
   source= source.astype('uint16')
   source = select_bands(source, source_path)
@@ -139,7 +143,7 @@ def resample_and_save(source_path, out_path, target_xds = None, landsat1=False):
 def run_starfm(runlist, bucket_name):
     bucket = storage_client.get_bucket(bucket_name)
     
-    bands = ['blue', 'red', 'nir']
+    bands = ['red', 'nir']
 
     for index, row in runlist.iterrows():
       shape_x = 0
@@ -273,13 +277,13 @@ def run_starfm(runlist, bucket_name):
       if os.stat('temp/starfm_test_{}.bin'.format(bands[0])).st_size==0:
         continue
 
-      blue=rxr.open_rasterio('temp/starfm_test_{}.bin'.format(bands[0]))
-      blue.name='blue'
-      red=rxr.open_rasterio('temp/starfm_test_{}.bin'.format(bands[1]))
+      #blue=rxr.open_rasterio('temp/starfm_test_{}.bin'.format(bands[0]))
+      #blue.name='blue'
+      red=rxr.open_rasterio('temp/starfm_test_{}.bin'.format(bands[0]))
       red.name='red'
-      nir=rxr.open_rasterio('temp/starfm_test_{}.bin'.format(bands[2]))
+      nir=rxr.open_rasterio('temp/starfm_test_{}.bin'.format(bands[1]))
       nir.name='nir'
-      combined = xr.concat([blue, red, nir], dim='band')
+      combined = xr.concat([red, nir], dim='band')
       combined.attrs['long_name'] = bands
       combined = combined.rio.write_crs('EPSG:4326')
       combined.rio.transform = common_transform
