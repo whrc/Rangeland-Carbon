@@ -1,15 +1,17 @@
 import ee
-import utils
 import time 
 import numpy as np
 from functools import partial
-import preprocess_starfm_imagery as psi
+import starfm_preprocessing as psi
 from google.cloud import storage
 from datetime import datetime as dt
 import sys
 import argparse
 import os
 import pandas as pd
+import sys
+sys.path.insert(1, '../utils')
+import utils
 
 utils.authorize(high_endpoint=False)
 utils.print_root_assets()
@@ -495,7 +497,7 @@ def export_landsat_collection(collection, roi_asset_path, bucket_name, directory
   Returns:
      None
   """ 
-  storage_client = storage.Client.from_service_account_json('gee_key.json')
+  storage_client = storage.Client.from_service_account_json('/home/amullen/Rangeland-Carbon/res/gee_key.json')
   bucket = storage_client.get_bucket(bucket_name)
   
   roi=ee.FeatureCollection(roi_asset_path)
@@ -556,7 +558,7 @@ def export_modis_collection(modis_collection, roi_asset_path, bucket_name, out_d
   Returns:
      None
   """ 
-  storage_client = storage.Client.from_service_account_json('gee_key.json')
+  storage_client = storage.Client.from_service_account_json('/home/amullen/Rangeland-Carbon/res/gee_key.json')
   bucket = storage_client.get_bucket(bucket_name)
   
   roi=ee.FeatureCollection(roi_asset_path)
@@ -624,16 +626,16 @@ if __name__ == "__main__":
   
   if args.which=='landsat':
     landsat = get_landsat(LS8_collection, LS7_collection, LS5_collection, args.roi_asset_path, start_date, end_date)
-    export_landsat_collection(landsat, args.roi_asset_path, args.bucket_name, os.path.join(args.out_directory, 'landsat/'))
+    export_landsat_collection(landsat, args.roi_asset_path, args.bucket_name, os.path.join(args.out_directory, 'landsat_v2/'))
     
   if args.which=='modis':
     modis = get_MODIS(MODIS_collection, args.roi_asset_path, start_date, end_date)
-    export_modis_collection(modis, args.roi_asset_path, args.bucket_name, os.path.join(args.out_directory, 'modis/'), landsat_dir = os.path.join(args.out_directory, 'landsat/'))
+    export_modis_collection(modis, args.roi_asset_path, args.bucket_name, os.path.join(args.out_directory, 'modis/'), landsat_dir = os.path.join(args.out_directory, 'landsat_v2/'))
     
   if args.which=='both':
     
     landsat = get_landsat(LS8_collection, LS7_collection, LS5_collection, args.roi_asset_path, start_date, end_date)
-    landsat_dates, landsat_task_ids = export_landsat_collection(landsat, args.roi_asset_path, args.bucket_name, os.path.join(args.out_directory, 'landsat/'))
+    landsat_dates, landsat_task_ids = export_landsat_collection(landsat, args.roi_asset_path, args.bucket_name, os.path.join(args.out_directory, 'landsat_v2/'))
     
     modis = get_MODIS(MODIS_collection, args.roi_asset_path, start_date, end_date)
     modis_task_ids = export_modis_collection(modis, args.roi_asset_path, args.bucket_name, os.path.join(args.out_directory, 'modis/'), landsat_dates=landsat_dates)  
