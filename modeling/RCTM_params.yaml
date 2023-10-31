@@ -9,93 +9,169 @@ Ignore_sites: ['Kon']
 RCTM_params:
   grassland:
     starfm:
-      LUEmax: [0.493, 1, 2.2]
-      MIN_Tmn: [-21.219, -65, -5]
-      MAX_Tmx: [10.697, 10, 35]
-      MIN_VPD: [0.46, 0, 2]
-      MAX_VPD: [0.713, 2, 50]
-      MIN_SMrz: [0.021, 0, 0.3]
-      MAX_SMrz: [0.514, 0.3, 1]
-      fPAR_min: [0.04569297, -0.150956779, 0.119034365, 0.16679609]
-      fPAR_max: [0.83437567, 0.804145527, 1.293256507, 0.791357147]
-      error-sd: [3.32, 0.1, 5]
-    starfm_actual:
-      LUEmax: [1.03, 1, 2.2]
-      MIN_Tmn: [-51.743, -65, -5]
-      MAX_Tmx: [17.258, 10, 35]
-      MIN_VPD: [0.439, 0, 2]
-      MAX_VPD: [1.734, 2, 50]
-      MIN_SMrz: [0.064, 0, 0.3]
-      MAX_SMrz: [0.976, 0.3, 1]
-      fPAR_min: [-0.021433595, 0.159232473, 0.119034365, -0.269932962, -0.022290956]
-      fPAR_max: [0.748126464, 0.555537761, 1.293256507, 0.766492947, 0.923857106]
-      error-sd: [3.32, 0.1, 5]
+      ndvi_02: 0.11484585580000001
+      ndvi_98: 0.7500618849999999
+      ndvi_sr_02: 1.259493460127564
+      ndvi_sr_98: 7.001980818796804
+      LUEmax: 0.493
+      MIN_Tmn: -21.219
+      MAX_Tmx: 10.697
+      MIN_VPD: 0.46
+      MAX_VPD: 0.713
+      MIN_SMrz: 0.021
+      MAX_SMrz: 0.514
+      fPAR_min: 0.05541246
+      fPAR_max: 0.80167811
+      error-sd: 3.32
+      F_Ra : 0.46
+      F_Root : 0.66
+      k_AGL : 0.0035
+      k_BGL : 0.0027
+      k_POC : 0.00065
+      k_HOC : 0.000255
+      CSE_AGL : 0.279
+      CSE_BGL : 0.264
+      CSE_POC : 0.491
+      CSE_HOC : 0.460
+      MIN_SMsf : 0  
+      MAX_SMsf : 45.1
+      beta0 : 240.71
+      beta1 : 66.02
+      beta2 : 227.13
+      MIN_SMsd : 30
+      MAX_SMsd : 70
+      h_SMsd : 0.2
+      l_SMsd : 0.05
+      snsd : 0.95
+      frt : 0.15
+      MIN_SMrd : 40
+      MAX_SMrd : 80
+      rdt : 275
+      h_SMrd : 0.07 
+      l_SMrd : 0.02
   hay-pasture:
     starfm:
-      LUEmax: [0.493, 1, 2.2]
-      MIN_Tmn: [-21.219, -65, -5]
-      MAX_Tmx: [10.697, 10, 35]
-      MIN_VPD: [0.46, 0, 2]
-      MAX_VPD: [0.713, 2, 50]
-      MIN_SMrz: [0.021, 0, 0.3]
-      MAX_SMrz: [0.514, 0.3, 1]
-      fPAR_min: [0.04569297, -0.150956779, 0.119034365, 0.16679609]
-      fPAR_max: [0.83437567, 0.804145527, 1.293256507, 0.791357147]
-      error-sd: [3.32, 0.1, 5]
-    starfm_actual:
-      LUEmax: [1.03, 1, 2.2]
-      MIN_Tmn: [-51.743, -65, -5]
-      MAX_Tmx: [17.258, 10, 35]
-      MIN_VPD: [0.439, 0, 2]
-      MAX_VPD: [1.734, 2, 50]
-      MIN_SMrz: [0.064, 0, 0.3]
-      MAX_SMrz: [0.976, 0.3, 1]
-      fPAR_min: [0.15923247, 0.11903436, -0.02143359, -0.26993296, -0.26993296]
-      fPAR_max: [0.55553776, 1.29325651, 0.74812646, 0.92385711, 0.76649295]
-      error-sd: [3.32, 0.1, 5]
+      ndvi_02: 0.11484585580000001
+      ndvi_98: 0.7500618849999999
+      ndvi_sr_02: 1.259493460127564
+      ndvi_sr_98: 7.001980818796804
+      LUEmax: 0.493
+      MIN_Tmn: -21.219
+      MAX_Tmx: 10.697
+      MIN_VPD: 0.46
+      MAX_VPD: 0.713
+      MIN_SMrz: 0.021
+      MAX_SMrz: 0.514
+      fPAR_min: 0.05541246
+      fPAR_max: 0.80167811
+      error-sd: 3.32
+      F_Ra : 0.46
+      F_Root : 0.66
+      k_AGL : 0.0035
+      k_BGL : 0.0027
+      k_POC : 0.00065
+      k_HOC : 0.000255
+      CSE_AGL : 0.279
+      CSE_BGL : 0.264
+      CSE_POC : 0.491
+      CSE_HOC : 0.460
+      MIN_SMsf : 0  
+      MAX_SMsf : 45.1
+      beta0 : 240.71
+      beta1 : 66.02
+      beta2 : 227.13
+      MIN_SMsd : 30
+      MAX_SMsd : 70
+      h_SMsd : 0.2
+      l_SMsd : 0.05
+      snsd : 0.95
+      frt : 0.15
+      MIN_SMrd : 40
+      MAX_SMrd : 80
+      rdt : 275
+      h_SMrd : 0.07 
+      l_SMrd : 0.02
   grass-shrub:
     starfm:
-      LUEmax: [0.544, 0.95, 1.5]
-      MIN_Tmn: [-13.307, -15, 5]
-      MAX_Tmx: [14.439, 5, 20]
-      MIN_VPD: [0.452, 0, 1.8]
-      MAX_VPD: [0.791, 1.8, 30]
-      MIN_SMrz: [0.005, 0, 0.05]
-      MAX_SMrz: [0.409, 0.7, 1]
-      fPAR_min: [0.04663258, 0.021508793, 0.051673123, -0.090090757]
-      fPAR_max: [1.06101186, 1.041337061, 0.913470967, 0.888069389]
-      error-sd: [1.64, 0.1, 5]
-    starfm_actual:
-      LUEmax: [1.234, 0.95, 1.5]
-      MIN_Tmn: [-9.108, -15, 5]
-      MAX_Tmx: [16.409, 5, 20]
-      MIN_VPD: [0.318, 0, 1.8]
-      MAX_VPD: [1.776, 1.8, 30]
-      MIN_SMrz: [0.006, 0, 0.05]
-      MAX_SMrz: [0.87, 0.7, 1]
-      fPAR_min: [0.037455528, 0.037455528, 0.049517651, 0.037455528, 0.02539341]
-      fPAR_max: [0.99813742, 0.99813742, 0.92483149, 0.99813742, 1.07144335]
-      error-sd: [1.64, 0.1, 5]
+      ndvi_02: 0.11484585580000001
+      ndvi_98: 0.7500618849999999
+      ndvi_sr_02: 1.259493460127564
+      ndvi_sr_98: 7.001980818796804
+      LUEmax: 0.544
+      MIN_Tmn: -13.307
+      MAX_Tmx: 14.439
+      MIN_VPD: 0.452
+      MAX_VPD: 0.791
+      MIN_SMrz: 0.005
+      MAX_SMrz: 0.409
+      fPAR_min: 0.04646488
+      fPAR_max: 1.04123008
+      error-sd: 1.64
+      F_Ra : 0.46
+      F_Root : 0.66
+      k_AGL : 0.0035
+      k_BGL : 0.0027
+      k_POC : 0.00065
+      k_HOC : 0.000255
+      CSE_AGL : 0.279
+      CSE_BGL : 0.264
+      CSE_POC : 0.491
+      CSE_HOC : 0.460
+      MIN_SMsf : 0  
+      MAX_SMsf : 45.1
+      beta0 : 240.71
+      beta1 : 66.02
+      beta2 : 227.13
+      MIN_SMsd : 30
+      MAX_SMsd : 70
+      h_SMsd : 0.2
+      l_SMsd : 0.05
+      snsd : 0.95
+      frt : 0.15
+      MIN_SMrd : 40
+      MAX_SMrd : 80
+      rdt : 275
+      h_SMrd : 0.07 
+      l_SMrd : 0.02
   grass-tree:
     starfm:
-      LUEmax: [0.452, 1, 1.6]
-      MIN_Tmn: [-68.944, -60, 0]
-      MAX_Tmx: [37.187, 25, 40]
-      MIN_VPD: [0.626, 0, 1.9]
-      MAX_VPD: [1.005, 1.9, 20]
-      MIN_SMrz: [0.164, 0, 0.25]
-      MAX_SMrz: [0.465, 0.7, 1]
-      fPAR_min: [0.00071166, 0.040767519, 0.025324743, -0.165870318, -0.001732212]
-      fPAR_max: [0.90220166, 1.217699545, 1.201332631, 0.959261645, 1.080006142]
-      error-sd: [1.64, 0.1, 5]
-    starfm_actual:
-      LUEmax: [1.1, 1, 1.6]
-      MIN_Tmn: [-27.192, -60, 0]
-      MAX_Tmx: [39.283, 25, 40]
-      MIN_VPD: [0.668, 0, 1.9]
-      MAX_VPD: [1.854, 1.9, 20]
-      MIN_SMrz: [0.109, 0, 0.25]
-      MAX_SMrz: [0.924, 0.7, 1]
-      fPAR_min: [-0.04866802, 0.137138073, -0.04866802, -0.04866802, -0.011261404]
-      fPAR_max: [0.76981714, 1.19405709, 0.76981714, 0.769817143, 1.273795684]
-      error-sd: [1.64, 0.1, 5]
+      ndvi_02: 0.11484585580000001
+      ndvi_98: 0.7500618849999999
+      ndvi_sr_02: 1.259493460127564
+      ndvi_sr_98: 7.001980818796804
+      LUEmax: 0.452
+      MIN_Tmn: -68.944
+      MAX_Tmx: 37.187
+      MIN_VPD: 0.626
+      MAX_VPD: 1.005
+      MIN_SMrz: 0.164
+      MAX_SMrz: 0.465
+      fPAR_min: -0.01149394
+      fPAR_max: 0.94367025
+      error-sd: 1.64
+      F_Ra : 0.46
+      F_Root : 0.66
+      k_AGL : 0.0035
+      k_BGL : 0.0027
+      k_POC : 0.00065
+      k_HOC : 0.000255
+      CSE_AGL : 0.279
+      CSE_BGL : 0.264
+      CSE_POC : 0.491
+      CSE_HOC : 0.460
+      MIN_SMsf : 0  
+      MAX_SMsf : 45.1
+      beta0 : 240.71
+      beta1 : 66.02
+      beta2 : 227.13
+      MIN_SMsd : 30
+      MAX_SMsd : 70
+      h_SMsd : 0.2
+      l_SMsd : 0.05
+      snsd : 0.95
+      frt : 0.15
+      MIN_SMrd : 40
+      MAX_SMrd : 80
+      rdt : 275
+      h_SMrd : 0.07 
+      l_SMrd : 0.02
