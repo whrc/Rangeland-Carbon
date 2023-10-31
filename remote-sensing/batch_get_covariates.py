@@ -16,16 +16,17 @@ import get_covariates
 bad_sites=['Kon']
 start_date = '2002-01-01'
 end_date = '2023-01-01'
-
-daymet_collection_path = 'NASA/ORNL/DAYMET_V4'
   
 if __name__ == "__main__":
 
   parser=argparse.ArgumentParser()
   parser.add_argument("--init", action='store_true')
-  parser.add_argument("--covariate_status_file", help="directory with output modis imagery")
-  parser.add_argument("--local_status_file", help="directory with output modis imagery")
+  parser.add_argument("--covariate_status_file", help="status file to track covariate downloads")
+  parser.add_argument("--local_status_file", help="local status file to track which rois have been processed")
   parser.add_argument("--bucket_name", help="bucket name")
+  parser.add_argument("--prefix", help="path to site subdirectories")
+  parser.add_argument("--start_date", help="start date (YYYY-mm-dd)")
+  parser.add_argument("--end_date", help="end date (YYYY-mm-dd)")
 
   args=parser.parse_args()
   
@@ -42,6 +43,7 @@ if __name__ == "__main__":
   df_covariates = pd.read_csv(args.covariate_status_file)
 
   for index, row in df_process_stats.iterrows():
+      site = row['roi'].split('/')[-1]
       print(row['roi'])
       
       if df_covariates['roi'].str.contains(row['roi']).any():
@@ -54,18 +56,17 @@ if __name__ == "__main__":
       if row['roi'] in bad_sites:
         continue
       
-      print('getting daymet')
-      
-      roi_asset_path = 'projects/rangelands-explo-1571664594580/assets/Ameriflux_RS/{}/{}'.format(row['roi'], row['roi'])
-      sfm_in_dir = 'Ameriflux_sites/{}_starfm/starfm_test/'.format(row['roi'])
-      daymet_out_dir = 'Ameriflux_sites/{}_starfm/daymet/'.format(row['roi'])
-      
-      daymet_collection=get_covariates.get_daymet(start_date, end_date, roi_asset_path, daymet_collection_path)
-      get_covariates.export_daymet(daymet_collection, args.bucket_name, roi_asset_path, sfm_in_dir, daymet_out_dir)
+      print('getting covariates')
+      prefix=args.prefix
+      out_dir = f'{prefix}/{site}/covariates/'
+      modis_dir = f'{prefix}/{site}/modis/'
+      roi_asset_path = row['roi']
+      covariate_tuple = get_covariates.get_datasets(get_covariates.covariate_mapping, roi_asset_path, args.start_date, args.end_date)
+      get_covariates.export_daymet(covariate_tuple, args.bucket_name, roi_asset_path, modis_dir, out_dir)
       daymet_datetime = dt.now() 
       
       row = pd.DataFrame({'roi':[row['roi']], 'daymet':[daymet_datetime]})
       df_covariates=pd.concat([df_covariates, row], ignore_index = True)
       df_covariates.to_csv(args.covariate_status_file, index=False)
       
-# python batch_get_covariates.py --init --covariate_status_file='ameriflux_covariate_status.csv' --local_status_file='ameriflux_processing_status_local.csv' --bucket_name='rangelands'
+# python batch_get_covariates.py --init --covariate_status_file='res/status_files/HLD_grid_covariates.csv' --local_status_file='res/status_files/HLD_grid_local.csv' --bucket_name='rangelands' --prefix='Ranch_Runs/HLD' --start_date='2002-01-01' --end_date='2023-01-01'

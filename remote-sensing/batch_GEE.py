@@ -1,16 +1,18 @@
 import ee
-import utils
 import time 
 import numpy as np
 from functools import partial
-import preprocess_starfm_imagery as psi
-import GEE_fetch_starfm_imagery as fsi
+import starfm_preprocessing as psi
+import GEE_starfm as fsi
 from google.cloud import storage
 from datetime import datetime as dt
 import sys
 import argparse
 import os
 import pandas as pd
+import sys
+sys.path.insert(1, '../utils')
+import utils
 
 start_date = '2002-01-01'
 end_date = '2023-01-01'
@@ -21,7 +23,7 @@ LS5_collection = 'LANDSAT/LT05/C02/T1_L2' #do not change
 MODIS_collection = 'MODIS/061/MCD43A4' #do not change
 
 bucket_name='rangelands'
-storage_client = storage.Client.from_service_account_json('/home/amullen/Rangeland-Carbon/remote-sensing/gee_key.json')
+storage_client = storage.Client.from_service_account_json('/home/amullen/Rangeland-Carbon/res/gee_key.json')
 
 bad_sites=['Kon']
 
@@ -91,15 +93,15 @@ def batch(status_filename, prefix):
     roi_asset_path = row['roi']
     
     #get landsat
-    landsat_out_dir = f'{prefix}/{site}_starfm/landsat_test_v2/'
+    landsat_out_dir = f'{prefix}/{site}/landsat_v2/'
     landsat = fsi.get_landsat(LS8_collection, LS7_collection, LS5_collection, roi_asset_path, start_date, end_date)
     landsat_dates, landsat_task_ids = fsi.export_landsat_collection(landsat, roi_asset_path,bucket_name, landsat_out_dir, overwrite=False)
     df_process_stats.loc[index,'landsat_total'] = len(landsat_task_ids)
      
     #get modis   
-    modis_out_dir = f'{prefix}/{site}_starfm/modis_test_v2/'
+    modis_out_dir = f'{prefix}/{site}/modis/'
     modis = fsi.get_MODIS(MODIS_collection, roi_asset_path, start_date, end_date)
-    modis_task_ids = fsi.export_modis_collection(modis, roi_asset_path, bucket_name, modis_out_dir, landsat_dates=landsat_dates)
+    modis_task_ids = fsi.export_modis_collection(modis, roi_asset_path, bucket_name, modis_out_dir, landsat_dates=landsat_dates, overwrite=False)
     df_process_stats.loc[index,'modis_total'] = len(modis_task_ids) 
     
     print('waiting for landsat')

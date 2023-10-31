@@ -6,21 +6,20 @@ import time
 from datetime import datetime as dt
 import starfm
 import argparse
+import os
 
 bad_sites=['Kon']
     
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/amullen/Rangeland-Carbon/remote-sensing/gee_key.json'
 
 if __name__ == "__main__":
 
   parser=argparse.ArgumentParser()
   parser.add_argument("--init", action='store_true')
-  parser.add_argument("--gee_status_file", help="directory with input modis imagery")
-  parser.add_argument("--local_status_file", help="directory with output modis imagery")
+  parser.add_argument("--gee_status_file", help="gee imagery download status")
+  parser.add_argument("--local_status_file", help="status file for local processes")
   parser.add_argument("--bucket_name", help="bucket name")
-  #parser.add_argument("--modis_in_dir", help="directory with input modis imagery")
-  #parser.add_argument("--modis_smooth_dir", help="directory with output modis imagery")
-  #parser.add_argument("--landsat_dir", help="directory with input landsat imagery")
-  #parser.add_argument("--sfm_out_dir", help="directory to output starfm imagery")
+  parser.add_argument("--in_dir", help="directory to save smoothed modis imagery")
 
   args=parser.parse_args()
   
@@ -29,6 +28,7 @@ if __name__ == "__main__":
   
   df_process_stats = pd.read_csv(args.gee_status_file)
   
+  # if initializing new local processing, create status file with appropriate fields
   if args.init:
     df_local = pd.DataFrame(columns=['roi', 'modis_smoothed', 'starfm'])
     df_local.to_csv(args.local_status_file)
@@ -48,31 +48,41 @@ if __name__ == "__main__":
       while imagery_downloaded==False:
         
         df_process_stats = pd.read_csv(args.gee_status_file)
-        imagery_downloaded = isinstance(df_process_stats.loc[index, 'imagery_downloaded'],str)
+        imagery_downloaded = isinstance(df_process_stats.loc[index, 'imagery_downloaded'],str) #checks GEE status file to see if string occupies 'imagery downloaded fiels'
         time.sleep(1)
       
+      #ignore roi if already processed
       if row['roi'] in df_local['roi'].to_list():
         print('this roi is done')
         continue
       
       print('smoothing modis')
-      modis_in_dir = 'Ameriflux_sites/{}_starfm/modis_test/'.format(row['roi'])
-      modis_smooth_dir = 'Ameriflux_sites/{}_starfm/modis_test_smooth_5d/'.format(row['roi'])
+      modis_in_dir = os.path.join(args.in_dir, row['roi'].split('/')[-1] + '_starfm', 'modis_test_v2/')
+      modis_smooth_dir = os.path.join(args.in_dir, row['roi'].split('/')[-1]+ '_starfm', 'modis_smooth_v2')
       psi.smooth_modis_col(modis_in_dir, modis_smooth_dir, bucket)
-      modis_smoothed_datetime = dt.now() 
+      modis_smoothed_datetime = dt.now()
+      
+      #modis_in_dir = os.path.join(args.in_dir, row['roi'].split('/')[-1] + '/modis/')
+      #modis_smooth_dir = os.path.join(args.in_dir, row['roi'].split('/')[-1] + '/modis_smooth')
+      #psi.smooth_modis_col(modis_in_dir, modis_smooth_dir, bucket)
+      #modis_smoothed_datetime = dt.now() 
       
       
       print('running starfm')
-      landsat_dir = 'Ameriflux_sites/{}_starfm/landsat_test/'.format(row['roi'])
-      sfm_out_dir = 'Ameriflux_sites/{}_starfm/starfm_test_no_smooth/'.format(row['roi']) 
+      landsat_dir = os.path.join(args.in_dir, row['roi'].split('/')[-1] + '_starfm', 'landsat_test_v2')
+      sfm_out_dir = os.path.join(args.in_dir, row['roi'].split('/')[-1] + '_starfm', 'starfm_test_smooth_v2')
+      
+      #landsat_dir = os.path.join(args.in_dir, row['roi'].split('/')[-1] + '/landsat')
+      #sfm_out_dir = os.path.join(args.in_dir, row['roi'].split('/')[-1] + '/starfm')
       
       runlist=starfm.get_runlist(modis_smooth_dir, landsat_dir, sfm_out_dir, args.bucket_name)
+      print(runlist['outname'])
       starfm.run_starfm(runlist, args.bucket_name)
       starfm_datetime = dt.now()
       
       row = pd.DataFrame({'roi':[row['roi']], 'modis_smoothed':[modis_smoothed_datetime], 'starfm':[starfm_datetime]})
       df_local=pd.concat([df_local, row], ignore_index = True)
-      df_local.to_csv(args.local_status_file)
+      df_local.to_csv(args.local_status_file, index=False)
 
 #python batch_local.py --init=True --gee_status_file='ameriflux_processing_status.csv' --local_status_file='ameriflux_processing_status_local.csv' --bucket_name='rangelands'
 
