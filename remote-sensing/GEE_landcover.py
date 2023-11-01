@@ -9,18 +9,12 @@ import pandas as pd
 import sys
 sys.path.insert(1, '../utils')
 import utils
-
+import argparse
 
 utils.authorize()
-#utils.print_root_assets()
 bucket_name = 'rangelands'
 
 covariate_mapping = {
-  'meteorology': 'NASA/ORNL/DAYMET_V4', #daymet
-  'soil_texture': 'projects/rangelands-explo-1571664594580/assets/Covariates/Soils/SoilGrid100',
-  'soil_temperature': 'projects/rangelands-explo-1571664594580/assets/Covariates/Soils/NLDAST', #NLDAST
-  'soil_moisture': 'projects/rangelands-explo-1571664594580/assets/Covariates/Soils/NLDAS', #NLDAS
-  'shortwave': 'NASA/NLDAS/FORA0125_H002',
   'NLCD_landcover': 'USGS/NLCD_RELEASES/2019_REL/NLCD',
   'RAP_landcover': 'projects/rap-data-365417/assets/vegetation-cover-v3'
 }
@@ -55,14 +49,26 @@ def export_landcover(bucket_name, roi_asset_path, out_directory):
   
   return
 
-roi_file = '/home/amullen/Rangeland-Carbon/res/site_footprints/sites.txt'
+if __name__ == "__main__":
+  parser=argparse.ArgumentParser()
+  parser.add_argument("--roi_asset_path", help="path to roi Earth Engine Asset")
+  parser.add_argument("--landcover_out_dir", help="path to export landcover")
+  parser.add_argument("--bucket_name", help="bucket name")
+
+  args=parser.parse_args()
+  
+  export_landcover(args.bucket_name, args.roi_asset_path, args.landcover_out_dir) 
+  
+#python GEE_landcover.py  --roi_asset_path="projects/rangelands-explo-1571664594580/assets/Shapefiles/HB_shp" --landcover_out_dir="Ranch_Runs/HB/landcover/" --bucket_name="rangelands"
+
+#roi_file = '/home/amullen/Rangeland-Carbon/res/site_footprints/sites.txt'
 #landcover_dir = '/HLD/G1/landcover/'
 #export_landcover(bucket_name, roi_asset_path, landcover_dir)
-with open(roi_file) as f:
+#with open(roi_file) as f:
+#  
+#  rois = [line.rstrip('\n') for line in f]
+#  sites = [roi.split('/')[-1] for roi in rois]
   
-  rois = [line.rstrip('\n') for line in f]
-  sites = [roi.split('/')[-1] for roi in rois]
-  
-  for i, roi, in enumerate(rois):
-    print(sites[i])
-    export_landcover(bucket_name, roi, 'Ameriflux_sites/{}_starfm/landcover/'.format(sites[i]))
+#  for i, roi, in enumerate(rois):
+#    print(sites[i])
+#    export_landcover(bucket_name, roi, 'Ameriflux_sites/{}_starfm/landcover/'.format(sites[i]))

@@ -9,15 +9,11 @@ import pandas as pd
 import sys
 sys.path.insert(1, '../utils')
 import utils
+import argparse
 
 
 utils.authorize()
-#utils.print_root_assets()
 bucket_name = 'rangelands'
-
-#roi_asset_path = 'projects/rangelands-explo-1571664594580/assets/Ameriflux_RS/Rws/Rws'
-#starfm_dir='Ameriflux_sites/Rws_starfm/starfm_test/'
-#daymet_outdir='Ameriflux_sites/Rws_starfm/daymet/'
 
 covariate_mapping = {
   'meteorology': 'NASA/ORNL/DAYMET_V4', #daymet
@@ -279,7 +275,7 @@ def export_landcover(bucket_name, roi_asset_path, out_directory):
   
   return
 
-def export_daymet(covariate_tuple, bucket_name, roi_asset_path, modis_dir, out_directory_path):
+def export_covariates(covariate_tuple, bucket_name, roi_asset_path, modis_dir, out_directory_path):
 
   daymet_inputs, smColl1, smColl2, tsoil, NLDAS, tavg, tmin, prcp, clay = covariate_tuple
   
@@ -322,16 +318,21 @@ def export_daymet(covariate_tuple, bucket_name, roi_asset_path, modis_dir, out_d
         available_slots-=1
     
   return
+
+
+if __name__ == "__main__":
+  parser=argparse.ArgumentParser()
+  parser.add_argument("--modis_dir", help="modis directory to reference dates for covariates")
+  parser.add_argument("--out_directory", help="path to export imagery subdirectories")
+  parser.add_argument("--start_date", help="start date for covariates, inclusive")
+  parser.add_argument("--end_date", help="end date for covariates, exclusive")
+  parser.add_argument("--bucket_name", help="bucket name")
+  parser.add_argument("--roi_asset_path", help="path to roi Earth Engine Asset")
+
+
+  args=parser.parse_args()
   
-start_date = "2002-01-01"
-end_date = "2023-01-01"
-roi_asset_path = 'projects/rangelands-explo-1571664594580/assets/Ameriflux_RS/A32/A32'
-#roi_asset_path = 'projects/rangelands-explo-1571664594580/assets/Ranches/HLD/G1'
-#landcover_dir = '/HLD/G1/landcover/'
-#export_landcover(bucket_name, roi_asset_path, landcover_dir)
-#out_dir = 'Ranch_Runs/HLD/G1/covariates/'
-#out_dir= 'Ameriflux_sites/A32_starfm/covariates/'
-#modis_dir= 'Ameriflux_sites/A32_starfm/modis_test_v2/'
-#modis_dir= 'Ranch_Runs/HLD/G1/modis/'
-#covariate_tuple = get_datasets(covariate_mapping, roi_asset_path, start_date, end_date)
-#export_daymet(covariate_tuple, bucket_name, roi_asset_path, modis_dir, out_dir)
+  covariate_tuple = get_datasets(covariate_mapping, args.roi_asset_path, args.start_date, args.end_date)
+  export_covariates(covariate_tuple, args.bucket_name, args.roi_asset_path, args.modis_dir, args.out_directory)  
+
+#python GEE_covariates.py --modis_dir="Ranch_Runs/HB/modis" --out_directory="Ranch_Runs/HB/covariates/" --start_date="2002-01-01" --end_date="2023-01-01" --bucket_name="rangelands" --roi_asset_path="projects/rangelands-explo-1571664594580/assets/Shapefiles/HB_shp"
