@@ -275,7 +275,7 @@ def export_landcover(bucket_name, roi_asset_path, out_directory):
   
   return
 
-def export_covariates(covariate_tuple, bucket_name, roi_asset_path, modis_dir, out_directory_path):
+def export_covariates(covariate_tuple, bucket_name, roi_asset_path, modis_dir, out_directory_path, overwrite=True):
 
   daymet_inputs, smColl1, smColl2, tsoil, NLDAS, tavg, tmin, prcp, clay = covariate_tuple
   
@@ -292,6 +292,13 @@ def export_covariates(covariate_tuple, bucket_name, roi_asset_path, modis_dir, o
   available_slots = get_gee_queue()
   
   for i in range(0, count):
+    
+    exists = storage.Blob(bucket=bucket, name='{}covariates_{}'.format(out_directory_path, names[i]+'.tif')).exists(storage_client)
+
+    if exists:
+      if overwrite==False:
+        print('{} already exists! Skipping'.format(names[i]))
+        continue
   
     if available_slots<=0:
       print('GEE queue full, waiting')
