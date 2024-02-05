@@ -1,0 +1,88 @@
+HB:
+  grassland:
+    AGB: 5.91
+    BGB: 29.99
+    AGL: 50.12
+    BGL: 48.63
+    POC: 1562.44
+    HOC: 2907.64
+  grass-shrub:
+    AGB: 6.8
+    BGB: 37.03
+    AGL: 73.63
+    BGL: 110.38
+    POC: 2985.86
+    HOC: 6319.67
+  grass-tree:
+    AGB: 3.08
+    BGB: 18.47
+    AGL: 18.96
+    BGL: 20.79
+    POC: 722.84
+    HOC: 916.04
+HV:
+  grassland:
+    AGB: 12.31
+    BGB: 92.28
+    AGL: 197.58
+    BGL: 208.77
+    POC: 6568.65
+    HOC: 12205.0
+  grass-shrub:
+    AGB: 12.36
+    BGB: 106.08
+    AGL: 273.3
+    BGL: 445.55
+    POC: 11984.39
+    HOC: 25354.64
+  grass-tree:
+    AGB: 7.59
+    BGB: 74.75
+    AGL: 92.04
+    BGL: 112.37
+    POC: 3867.39
+    HOC: 4892.0
+MCK:
+  grassland:
+    AGB: 14.01
+    BGB: 109.26
+    AGL: 223.44
+    BGL: 239.51
+    POC: 7391.01
+    HOC: 13742.62
+  grass-shrub:
+    AGB: 11.94
+    BGB: 113.86
+    AGL: 277.74
+    BGL: 460.58
+    POC: 12232.41
+    HOC: 25887.05
+  grass-tree:
+    AGB: 9.0
+    BGB: 89.12
+    AGL: 100.61
+    BGL: 123.38
+    POC: 4224.97
+    HOC: 5048.45
+VDZ:
+  grassland:
+    AGB: 8.01
+    BGB: 50.83
+    AGL: 63.71
+    BGL: 60.83
+    POC: 1745.68
+    HOC: 3248.43
+  grass-shrub:
+    AGB: 11.83
+    BGB: 75.81
+    AGL: 115.2
+    BGL: 160.93
+    POC: 4113.08
+    HOC: 8709.64
+  grass-tree:
+    AGB: 9.0
+    BGB: 89.12
+    AGL: 100.61
+    BGL: 123.38
+    POC: 4224.97
+    HOC: 5048.45
