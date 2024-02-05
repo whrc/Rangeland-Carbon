@@ -216,9 +216,9 @@ for site in NEE_df['site'].unique():
   #print(r2)
   #interpolate covariates
   NEE_df = NEE_df.sort_values(by='time')
-  NEE_df.loc[NEE_df['site']==site, 'Clay'] = NEE_df.loc[NEE_df['site']==site, 'SWC2'].interpolate()
+  NEE_df.loc[NEE_df['site']==site, 'Clay'] = NEE_df.loc[NEE_df['site']==site, 'Clay'].interpolate()
   NEE_df.loc[NEE_df['site']==site, 'TS'] = NEE_df.loc[NEE_df['site']==site, 'TS'].interpolate()
-  NEE_df.loc[NEE_df['site']==site, 'SWC1'] = NEE_df.loc[NEE_df['site']==site, 'SWC2'].interpolate()
+  NEE_df.loc[NEE_df['site']==site, 'SWC1'] = NEE_df.loc[NEE_df['site']==site, 'SWC1'].interpolate()
   NEE_df.loc[NEE_df['site']==site, 'SWC2'] = NEE_df.loc[NEE_df['site']==site, 'SWC2'].interpolate()
   NEE_df.loc[NEE_df['site']==site, 'VPD'] = NEE_df.loc[NEE_df['site']==site, 'VPD'].interpolate()
   NEE_df.loc[NEE_df['site']==site, 'SW_IN_NLDAS'] = NEE_df.loc[NEE_df['site']==site, 'SW_IN_NLDAS'].interpolate()
