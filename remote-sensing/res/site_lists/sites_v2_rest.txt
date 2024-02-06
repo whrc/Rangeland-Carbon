@@ -1,9 +1,0 @@
-projects/rangelands-explo-1571664594580/assets/Ameriflux_RS/xDC/xDC
-projects/rangelands-explo-1571664594580/assets/Ameriflux_RS/xJR/xJR
-projects/rangelands-explo-1571664594580/assets/Ameriflux_RS/xKA/xKA
-projects/rangelands-explo-1571664594580/assets/Ameriflux_RS/xKZ/xKZ
-projects/rangelands-explo-1571664594580/assets/Ameriflux_RS/xMB/xMB
-projects/rangelands-explo-1571664594580/assets/Ameriflux_RS/xNG/xNG
-projects/rangelands-explo-1571664594580/assets/Ameriflux_RS/xNQ/xNQ
-projects/rangelands-explo-1571664594580/assets/Ameriflux_RS/xWD/xWD
-projects/rangelands-explo-1571664594580/assets/Ameriflux_RS/xYE/xYE
