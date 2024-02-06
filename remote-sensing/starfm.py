@@ -4,8 +4,10 @@ import numpy as np
 import rasterio as rio
 import rioxarray as rxr
 import xarray as xr
+import sys
+sys.path.insert(1, '../utils')
 import utils
-import preprocess_starfm_imagery as psi
+import starfm_preprocessing as psi
 from google.cloud import storage
 import subprocess
 import ntpath
@@ -13,7 +15,7 @@ import pandas as pd
 import os
 import argparse
 
-storage_client = storage.Client.from_service_account_json('/home/amullen/Rangeland-Carbon/remote-sensing/gee_key.json')
+storage_client = storage.Client.from_service_account_json('/home/amullen/Rangeland-Carbon/res/gee_key.json')
 
 
 def get_runlist(in_modis_dir, in_landsat_dir, sfm_out_dir, bucket_name, modland_match_tol=0, modpred_match_tol=365):

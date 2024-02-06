@@ -9,10 +9,10 @@ import xarray as xr
 import seaborn as sns
 from matplotlib import pyplot as plt
 
-storage_client = storage.Client.from_service_account_json('/home/amullen/Rangeland-Carbon/remote-sensing/gee_key.json')
+storage_client = storage.Client.from_service_account_json('/home/amullen/Rangeland-Carbon/res/gee_key.json')
 
 bucket_name='rangelands'
-path_to_footprint_list = 'res/HLR_tiles_subregion.txt'
+path_to_footprint_list = '/home/amullen/Rangeland-Carbon/res/site_footprints/HLR_tiles_subregion.txt'
 bucket = storage_client.get_bucket(bucket_name)
 
 path_to_landcover = 'gs://' + bucket.name + '/Ranch_Runs/HLR/landcover/NLCD_HLR_2019.tif'

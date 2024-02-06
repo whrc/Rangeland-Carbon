@@ -251,7 +251,7 @@ def landsat_mask(img, roi_asset_path):
         
   #return img.updateMask(buffered_mask).updateMask(mask_radsat)
 def landsat_water_snow_mask(img, roi_asset_path):
-  """Bit masking for Landsat to remove clouds, cloud shadows, and snow
+  """Bit masking for Landsat to remove water, and snow
 
   Args:
     img (ee.Image): Landsat image.
@@ -305,7 +305,7 @@ def prepOli(img, roi_asset_path):
   return ee.Image(img.copyProperties(orig, orig.propertyNames())).select(['green', 'red', 'nir', 'swir1', 'QA_PIXEL','QA_RADSAT'])
  
 def prepEtm(img, roi_asset_path):
-  """Prepares Landsat OLI images for merging with ETM Image Collection. 
+  """Prepares Landsat ETM images for merging with OLI Image Collection. 
      Rescales to scale factor of 10000, maps bands to common names, masks image, and harmonizes with OLI
 
   Args:

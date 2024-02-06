@@ -1,4 +1,4 @@
-import preprocess_starfm_imagery as psi
+import starfm_preprocessing as psi
 import pandas as pd
 from google.cloud import storage
 import numpy as np
@@ -10,7 +10,7 @@ import os
 
 bad_sites=['Kon']
     
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/amullen/Rangeland-Carbon/remote-sensing/gee_key.json'
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/amullen/Rangeland-Carbon/res/gee_key.json'
 
 if __name__ == "__main__":
 
@@ -23,7 +23,7 @@ if __name__ == "__main__":
 
   args=parser.parse_args()
   
-  storage_client = storage.Client.from_service_account_json('/home/amullen/Rangeland-Carbon/remote-sensing/gee_key.json')
+  storage_client = storage.Client.from_service_account_json('/home/amullen/Rangeland-Carbon/res/gee_key.json')
   bucket = storage_client.get_bucket(args.bucket_name)
   
   df_process_stats = pd.read_csv(args.gee_status_file)
@@ -57,8 +57,8 @@ if __name__ == "__main__":
         continue
       
       print('smoothing modis')
-      modis_in_dir = os.path.join(args.in_dir, row['roi'].split('/')[-1] + '_starfm', 'modis_test_v2/')
-      modis_smooth_dir = os.path.join(args.in_dir, row['roi'].split('/')[-1]+ '_starfm', 'modis_smooth_v2')
+      modis_in_dir = os.path.join(args.in_dir, row['roi'].split('/')[-1], 'modis/')
+      modis_smooth_dir = os.path.join(args.in_dir, row['roi'].split('/')[-1], 'modis_smooth_v2')
       psi.smooth_modis_col(modis_in_dir, modis_smooth_dir, bucket)
       modis_smoothed_datetime = dt.now()
       
@@ -69,8 +69,8 @@ if __name__ == "__main__":
       
       
       print('running starfm')
-      landsat_dir = os.path.join(args.in_dir, row['roi'].split('/')[-1] + '_starfm', 'landsat_test_v2')
-      sfm_out_dir = os.path.join(args.in_dir, row['roi'].split('/')[-1] + '_starfm', 'starfm_test_smooth_v2')
+      landsat_dir = os.path.join(args.in_dir, row['roi'].split('/')[-1], 'landsat_v2')
+      sfm_out_dir = os.path.join(args.in_dir, row['roi'].split('/')[-1], 'starfm_v2')
       
       #landsat_dir = os.path.join(args.in_dir, row['roi'].split('/')[-1] + '/landsat')
       #sfm_out_dir = os.path.join(args.in_dir, row['roi'].split('/')[-1] + '/starfm')
@@ -86,4 +86,4 @@ if __name__ == "__main__":
 
 #python batch_local.py --init=True --gee_status_file='ameriflux_processing_status.csv' --local_status_file='ameriflux_processing_status_local.csv' --bucket_name='rangelands'
 
-#python batch_local.py --gee_status_file='ameriflux_processing_status.csv' --local_status_file='ameriflux_processing_status_local.csv' --bucket_name='rangelands'
+#python batch_local.py --init --gee_status_file='res/status_files/HLD_grid_v2.csv' --local_status_file='res/status_files/HLD_grid_v2_local.csv' --bucket_name='rangelands' --in_dir='Ranch_Runs/HLD'

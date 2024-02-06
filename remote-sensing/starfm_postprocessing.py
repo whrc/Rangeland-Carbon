@@ -29,13 +29,21 @@ import yaml
 #    - function(s): daymet_qaqc()
 # 3. Temporal gap-filling of NDVI and covariates, currently a simple nearest-neighbor approximation 
 #    - function(s): daymet_qaqc()
-# 4. Generate an image of spatially distributed RCTM parameters based on plant-functional type that is determined by landcover. Currently based on NLCD class.
+# 4. Generate spinup dataset
+#    - function(s): aggregate_for_spinup()
+# 5. Generate an image of spatially distributed RCTM parameters based on plant-functional type that is determined by landcover. Currently based on NLCD class.
 #    - function(s): get_spatial_RCTM_params()
 # 
 # Additional useful functions:
 #  - get_ndvi_nc(): builds netcdf time series with only NDVI calculated from STARFM. Useful for debugging image fusion methods.
 #  - image_average_variables(): spatially averages one or multiple variables in an XArray dataset and saves to a pandas dataframe. 
 #    Useful for assessing covariate time series and running the model in point mode.
+#
+#Example usage:
+# The following call will run all 5 processes sequentially
+#
+#python starfm_postprocessing.py --starfm_in_dir='Ranch_Runs/HV/starfm/' --covariate_in_dir='Ranch_Runs/HV/covariates/' --out_dir='Ranch_Runs/HV/covariates_nc/' --NLCD_in_dir='Ranch_Runs/HV/landcover/NLCD_2019.tif' --RAP_in_dir='Ranch_Runs/HV/landcover/RAP_2019.tif' --param_file='/home/amullen/Rangeland-Carbon/modeling/RCTM_params.yaml' --bucket_name='rangelands'
+#
 ###################################################################################################################################
 
 
@@ -43,7 +51,7 @@ path_to_temp = '/home/amullen/temp/'
 storage_client = storage.Client.from_service_account_json('/home/amullen/Rangeland-Carbon/res/gee_key.json')
 
 bucket_name='rangelands'
-path_to_footprint_list = '/home/amullen/Rangeland-Carbon/res/site_footprints/HLR_tiles_subregion.txt'
+#path_to_footprint_list = '/home/amullen/Rangeland-Carbon/res/site_footprints/HLR_tiles_subregion.txt'
 bucket = storage_client.get_bucket(bucket_name)
 
   
@@ -104,7 +112,7 @@ def get_ndvi_nc(starfm_in_dir, out_dir, out_name, bucket_name):
   
   return covariate_DataArray
   
-def get_spatial_RCTM_params(landcover_in_dir, param_file, param_out_name, bucket_name, param_type='starfm'):
+def get_spatial_RCTM_params(NLCD_in_dir, RAP_in_dir, param_file, param_out_name, bucket_name, param_type='starfm'):
   """Generates n-band geotiff holding the spatial parameters for RCTM, each band is a parameter. 
      Parameterization is based on plant functional type which are currently determined using NLCD.
 
@@ -119,7 +127,10 @@ def get_spatial_RCTM_params(landcover_in_dir, param_file, param_out_name, bucket
      None
   """ 
   #open landcover
-  landcover = rxr.open_rasterio('gs://' + bucket_name + '/' + landcover_in_dir, masked=True)
+  NLCD_landcover = rxr.open_rasterio('gs://' + bucket_name + '/' + NLCD_in_dir, masked=True)
+  RAP_landcover = rxr.open_rasterio('gs://' + bucket_name + '/' + RAP_in_dir, masked=True)
+  RAP_landcover = RAP_landcover.rio.reproject_match(NLCD_landcover)
+  #RAP_landcover = utils.xr_dataset_to_data_array(RAP_landcover)
   
   #Load RCTM params as dict
   params=[]
@@ -130,11 +141,21 @@ def get_spatial_RCTM_params(landcover_in_dir, param_file, param_out_name, bucket
   keys = params['RCTM_params']['grassland'][param_type].keys()
   
   #create numpy array of nans with proper shape, shape = (params, y, x)
-  spatial_params = np.zeros((len(keys), np.shape(landcover.values)[1], np.shape(landcover.values)[2]))
+  spatial_params = np.zeros((len(keys), np.shape(NLCD_landcover.values)[1], np.shape(NLCD_landcover.values)[2]))
   spatial_params[:] = np.nan
   
+  landcover = np.zeros(np.shape(NLCD_landcover.values[0]))
+  
+  #RAP Thresholds
+  RAP_thresholds = {
+                    'grass-tree': 30,
+                    'grass-shrub': 30,
+                    'grassland': 30
+                    }
+                    
   #NLCD pft mapping
-  NLCD_LUT = {'41': 'grass-tree',
+  NLCD_LUT = {
+            '41': 'grass-tree',
             '42': 'grass-tree',
             '43': 'grass-tree',
             '51': 'grass-shrub',
@@ -144,28 +165,60 @@ def get_spatial_RCTM_params(landcover_in_dir, param_file, param_out_name, bucket
             '81': 'grassland',
             '82': 'grassland',
             '90': 'grass-shrub',
-            '95': 'grassland'}
+            '95': 'grassland'
+            }
+            
   NLCD_grass = [71, 72, 81, 82, 90, 95]
   NLCD_shrub = [51, 52, 90]
   NLCD_tree = [41, 42, 43]
   
+  landcover[np.isin(NLCD_landcover.values[0], NLCD_grass)] = 1
+  landcover[np.isin(NLCD_landcover.values[0], NLCD_shrub)] = 2
+  landcover[np.isin(NLCD_landcover.values[0], NLCD_tree)] = 3
+  
+  landcover[RAP_landcover.values[0]>=RAP_thresholds['grassland']] = 1
+  landcover[RAP_landcover.values[3]>=RAP_thresholds['grassland']] = 1
+  landcover[RAP_landcover.values[4]>=RAP_thresholds['grass-shrub']] = 2
+  landcover[RAP_landcover.values[5]>=RAP_thresholds['grass-tree']] = 3
+  
+  
   #loop through params and pfts setting spatial params
+  #for i, key in enumerate(keys):
+  #  for nlcd_key in NLCD_LUT.keys():
+  #    spatial_params[i][np.isin(NLCD_landcover.values[0], NLCD_grass)] = params['RCTM_params']['grassland'][param_type][key]
+  #    spatial_params[i][np.isin(NLCD_landcover.values[0], NLCD_shrub)] = params['RCTM_params']['grass-shrub'][param_type][key]
+  #    spatial_params[i][np.isin(NLCD_landcover.values[0], NLCD_tree)] = params['RCTM_params']['grass-tree'][param_type][key]
   for i, key in enumerate(keys):
-    for nlcd_key in NLCD_LUT.keys():
-      spatial_params[i][np.isin(landcover.values[0], NLCD_grass)] = params['RCTM_params']['grassland'][param_type][key]
-      spatial_params[i][np.isin(landcover.values[0], NLCD_shrub)] = params['RCTM_params']['grass-shrub'][param_type][key]
-      spatial_params[i][np.isin(landcover.values[0], NLCD_tree)] = params['RCTM_params']['grass-tree'][param_type][key]
+    spatial_params[i][landcover==1] = params['RCTM_params']['grassland'][param_type][key]
+    spatial_params[i][landcover==2] = params['RCTM_params']['grass-shrub'][param_type][key]
+    spatial_params[i][landcover==3] = params['RCTM_params']['grass-tree'][param_type][key]
+  
+  #create DataArray for new landcover
+  landcover_DataArray = xr.DataArray(data = landcover,
+                                      dims = ['y', 'x'],
+                                      coords={'y':NLCD_landcover.y.values,
+                                              'x':NLCD_landcover.x.values 
+                                              },
+                                      attrs=dict(description="landcover"))
+  #write spatial information and set nodata value to 0                                 
+  landcover_DataArray.rio.write_crs(NLCD_landcover.rio.crs.to_wkt(), inplace=True)
+  landcover_DataArray.rio.write_transform(NLCD_landcover.rio.transform(), inplace=True)
+  landcover_DataArray.rio.write_nodata(0, inplace=True)
+  
+  #save to temp, write to google storage
+  landcover_DataArray.rio.to_raster(os.path.join(path_to_temp, 'temp_landcover_write.tif'))
+  utils.gs_write_blob(os.path.join(path_to_temp, 'temp_landcover_write.tif'), '/'.join(RAP_in_dir.split('/')[:-1]) + '/fused_landcover.tif', bucket)
   
   #create DataArray with spatial parameters
   param_DataArray = xr.DataArray(data = spatial_params,
                                       dims = ['band', 'y', 'x'],
-                                      coords={'y':landcover.y.values,
-                                              'x':landcover.x.values 
+                                      coords={'y':NLCD_landcover.y.values,
+                                              'x':NLCD_landcover.x.values 
                                               },
                                       attrs=dict(description="landcover", long_name=list(keys)))
   #write spatial information and set nodata value to 0                                 
-  param_DataArray.rio.write_crs(landcover.rio.crs.to_wkt(), inplace=True)
-  param_DataArray.rio.write_transform(landcover.rio.transform(), inplace=True)
+  param_DataArray.rio.write_crs(NLCD_landcover.rio.crs.to_wkt(), inplace=True)
+  param_DataArray.rio.write_transform(NLCD_landcover.rio.transform(), inplace=True)
   param_DataArray.rio.write_nodata(0, inplace=True)
   
   #save to temp, write to google storage
@@ -195,11 +248,17 @@ def daymet_qaqc(ds, bucket_name=None):
   
   print('masking with daymet')
   
+  print('rolling statistics')
   ds['rolling_std_ndvi'] = ds['ndvi'].rolling(time=365, center=True, min_periods=1).std()
   ds['rolling_median_ndvi'] = ds['ndvi'].rolling(time=14, center=True, min_periods=1).mean()
   
-  ds['qa'] = xr.where((ds['ndvi'] < 0) | (ds['tavg'] < 0) | (abs(ds['ndvi'] - ds['rolling_median_ndvi']) > ds['rolling_median_ndvi']+ds['rolling_std_ndvi']*2), 1, 0)
+  print('qa band from rolling statistics')
   
+  ds['qa'] = xr.where(ds['ndvi'] < 0, 1, 0)
+  ds['qa'] = xr.where(ds['tavg'] < 0, 1, 0)
+  ds['qa'] = xr.where((abs(ds['ndvi'] - ds['rolling_median_ndvi']) > ds['rolling_median_ndvi']+ds['rolling_std_ndvi']*2), 1, 0)
+  
+  print('checking NDVI validity')
   ds['ndvi'] = ds['ndvi'].where((ds['ndvi'] > 0) & (ds['tavg'] > 0) & (abs(ds['ndvi'] - ds['rolling_median_ndvi']) < ds['rolling_median_ndvi']+ds['rolling_std_ndvi']*2))
   
   ds['ndvi'] =  ds['ndvi'].interpolate_na(dim='time', method='linear', fill_value="extrapolate")
@@ -208,6 +267,7 @@ def daymet_qaqc(ds, bucket_name=None):
   
   ds['ndvi'] =  ds['ndvi'].interpolate_na(dim='time', method='nearest', fill_value="extrapolate")
   
+  print('interpolating')
   ds =  ds.interpolate_na(dim='time', method='nearest', fill_value="extrapolate")
   
   return ds
@@ -323,12 +383,20 @@ def image_average_variables(ds, variable_list, plot_dir=None):
   Returns:
      pandas.DataFrame with a column for time, and spatial average of each variable in variable_list
   """
-
-  site_dates = pd.to_datetime(pd.DatetimeIndex(ds.indexes['time'].to_datetimeindex()))
   
-  mean_indices=ds[variable_list].mean(dim=['y', 'x']).to_pandas()
-  mean_indices = mean_indices.sort_values(by='time', ascending=True)
-
+  print(ds.indexes)
+  if 'time' in ds.indexes:
+    site_dates = pd.to_datetime(pd.DatetimeIndex(ds.indexes['time']))
+    mean_indices=ds[variable_list].mean(dim=['y', 'x']).to_pandas()
+    mean_indices = mean_indices.sort_values(by='time', ascending=True)
+    
+  elif 'doy_bins_lower' in ds.indexes:
+    site_dates = ds.indexes['doy_bins_lower']
+    mean_indices=ds[variable_list].mean(dim=['y', 'x']).to_pandas()
+    mean_indices = mean_indices.sort_values(by='doy_bins_lower', ascending=True)
+    
+  else: return
+  
   for variable in variable_list:
     if plot_dir!=None:
       fig, ax = plt.subplots()
@@ -342,54 +410,83 @@ def image_average_variables(ds, variable_list, plot_dir=None):
 
   return mean_indices
 
-
-#starfm_in_dir='Ranch_Runs/HLD/G1/starfm/'
-#covariates_dir = 'Ranch_Runs/HLD/G1/covariates/'
-#out_dir='Ranch_Runs/HLD/G1/covariates_nc/'
-#out_name='G1_covariates.nc'
-#out_csv = 'G1_covariates.csv'
-
-starfm_in_dir='Ameriflux_sites/A32_starfm/starfm_test_smooth_v2/'
-covariates_dir = 'Ameriflux_sites/A32_starfm/covariates_site_test/'
-out_dir='Ameriflux_sites/A32_starfm/covariates_v2/'
-out_name='A32_covariates_site_test.nc'
-out_csv = 'A32_covariates_site_test.csv'
-
-#ds = gen_covariates(starfm_in_dir, covariates_dir,  out_dir, out_name, bucket_name, start_date='2002-01-01', end_date='2004-07-19')
-#ds = daymet_qaqc(os.path.join(out_dir, out_name), bucket_name)
-#df = image_average_variables(ds, ['ndvi','srad','vpd','tsoil','sm1','sm2','shortwave_radition','tavg','tmin','prcp','clay'], plot_dir=out_dir)
-#df.to_csv('gs://' + bucket_name + '/' + out_dir + out_csv)
-
-param_file = '/home/amullen/Rangeland-Carbon/modeling/RCTM_params.yaml'
-landcover = 'Ameriflux_sites/A32_starfm/landcover/NLCD_2019.tif'
-param_outname = 'Ameriflux_sites/A32_starfm/landcover/params_NLCD_2019.tif'
-#gen_arbitrary_landcover(starfm_in_dir, landcover, bucket_name)
-get_spatial_RCTM_params(landcover, param_file, param_outname, bucket_name)
-#
-
-#bad_sites=['Kon']
-
-#with open(path_to_footprint_list) as f:
+def aggregate_for_spinup(ds, out_dir, out_name, date_min, date_max, bucket_name, period = 5):
   
-#  sites = [line.rstrip('\n') for line in f]
-#  for site in sites:
-#    print(site)
-#    if site in bad_sites:
-        
-#        continue
-        
-#    starfm_in_dir='Ranch_Runs/HLR/{}/starfm/'.format(site.split('/')[-1])
-    #daymet_in_dir='Ranch_Runs/HLR/{}/covariates/'.format(site.split('/')[-1])
-#    out_dir='Ranch_Runs/HLR/{}/covariates_nc/'.format(site.split('/')[-1])
-#    out_name='{}_ndvi.nc'.format(site.split('/')[-1])
-#    out_csv = '{}_indices.csv'.format(site.split('/')[-1])
-#    plot_name='{}_ndvi.jpg'.format(site.split('/')[-1])
-    
-#    ds = get_ndvi_nc(starfm_in_dir, out_dir, out_name, bucket_name)
-    #ds = daymet_qaqc(os.path.join(out_dir, out_name), bucket_name)
-    #ds=load_dataset('gs://' + bucket_name + '/' + 'Ranch_Runs/HLD/{}/covariates_nc/D12_ndvi.nc'.format(site.split('/')[-1]))
-#    df = image_average_variables(ds, ['ndvi'], plot=out_dir+plot_name)
+  """Average data in time slice temporally for RCTM spinup dataset
 
-#    df.to_csv('gs://' + bucket_name + '/' + out_dir + out_csv)
+  Args:
+    ds (xarray.Dataset): dataset with variables to average and dimensions x, y, and time
+    out_dir (string): Google storage directory to write results to, does not include bucket name or 'gs://' prefix. e.g. Ranch_Runs/HLD/covariates_nc/
+    out_name (string): name for file with extension (should be a .nc file)
+    date_min (string): datetime to begin spinup aggregation, formatted YYYY-MM-DD
+    date_max (string): datetime to end spinup aggregation, formatted YYYY-MM-DD
+    bucket_name (string): google storage bucket name
+    period (int): number of days per spinup time period, used to bin individual image dates
+
+  Returns:
+     xarray.Dataset and saves the spinup file to Google Cloud Storage
+  """
+  
+  bucket = storage_client.get_bucket(bucket_name)
+  
+  if not (isinstance(ds, xr.core.dataarray.DataArray) | isinstance(ds, xr.core.dataarray.Dataset)):
+    ds=rxr.open_rasterio('gs://' + bucket_name + '/' + ds)
+  
+  ds=ds.sel(time=slice(date_min, date_max))
+  
+  orig_crs = ds.rio.crs.to_wkt()
+  orig_transform = ds.rio.transform()
+  
+  #get day of year from datetime index
+  doys = np.array(ds.indexes['time'].dayofyear)
+  doy_bins_lower = (np.floor(doys/period).astype(np.int16)*5)+1
+  
+  ds = ds.assign_coords(doy_bins_lower=('time', doy_bins_lower))
+  ds = ds.swap_dims({'time':'doy_bins_lower'})
+  ds = ds.groupby('doy_bins_lower').mean()
+  
+  ds.rio.write_crs(orig_crs, inplace=True)
+  ds.rio.write_transform(orig_transform, inplace=True)
+  ds.rio.nodata=0
+  
+  ds.to_netcdf(os.path.join(path_to_temp, 'temp_covariates_spin_write.nc'))
+  utils.gs_write_blob(os.path.join(path_to_temp, 'temp_covariates_spin_write.nc'), os.path.join(out_dir, out_name), bucket)
+
+  return ds
+
+if __name__ == "__main__":
+
+  parser=argparse.ArgumentParser()
+  
+  parser.add_argument("--starfm_in_dir", help="directory to output STARFM")
+  parser.add_argument("--covariate_in_dir", help="directory to output STARFM")
+  parser.add_argument("--out_dir", help="directory to output STARFM")
+  parser.add_argument("--NLCD_in_dir", help="directory to output STARFM")
+  parser.add_argument("--RAP_in_dir", help="directory to output STARFM")
+  parser.add_argument("--param_file", help="directory to output STARFM")
+  parser.add_argument("--bucket_name", help="bucket name")
+
+  args=parser.parse_args()
+  
+  covariate_nc_outname = 'covariates.nc'
+  covariate_csv_outname = 'covariates.csv'
+  spin_nc_outname = 'covariates_spin.nc'
+  spin_csv_outname = 'covariates_spin.csv'
+  param_outname = args.out_dir + 'params.tif'
+  
+  
+  #gen covariates
+  ds = gen_covariates(args.starfm_in_dir, args.covariate_in_dir,  args.out_dir, covariate_nc_outname, args.bucket_name, '2002-01-01', '2023-01-01', gap_fill = True)
+  #average indices
+  df = image_average_variables(ds, ['ndvi','srad','vpd','tsoil','sm1','sm2','shortwave_radition','tavg','tmin','prcp','clay'], plot_dir=os.path.join(args.out_dir, 'transient_figs/'))
+  df.to_csv('gs://' + args.bucket_name + '/' + args.out_dir + covariate_csv_outname)
+  #gen spinup
+  spin_ds = aggregate_for_spinup(ds, args.out_dir, spin_nc_outname, '2002-01-01', '2005-12-31', args.bucket_name,  period = 5)
+  df = image_average_variables(spin_ds, ['ndvi','srad','vpd','tsoil','sm1','sm2','shortwave_radition','tavg','tmin','prcp','clay'], plot_dir=os.path.join(args.out_dir, 'spin_figs/'))
+  df.to_csv('gs://' + args.bucket_name + '/' + args.out_dir + spin_csv_outname)
+  #get spatial params
+  get_spatial_RCTM_params(args.NLCD_in_dir, args.RAP_in_dir, args.param_file, param_outname, args.bucket_name, param_type='starfm')
+
+
 
   

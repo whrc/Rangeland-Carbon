@@ -49,7 +49,7 @@ def export_landcover(bucket_name, roi_asset_path, out_directory):
   
   return
 
-if __name__ == "__main__":
+if __name__ == "__mainf__":
   parser=argparse.ArgumentParser()
   parser.add_argument("--roi_asset_path", help="path to roi Earth Engine Asset")
   parser.add_argument("--landcover_out_dir", help="path to export landcover")
@@ -61,14 +61,15 @@ if __name__ == "__main__":
   
 #python GEE_landcover.py  --roi_asset_path="projects/rangelands-explo-1571664594580/assets/Shapefiles/HB_shp" --landcover_out_dir="Ranch_Runs/HB/landcover/" --bucket_name="rangelands"
 
-#roi_file = '/home/amullen/Rangeland-Carbon/res/site_footprints/sites.txt'
+roi_file = '/home/amullen/Rangeland-Carbon/res/site_footprints/HLD_tiles.txt'
 #landcover_dir = '/HLD/G1/landcover/'
 #export_landcover(bucket_name, roi_asset_path, landcover_dir)
-#with open(roi_file) as f:
+with open(roi_file) as f:
 #  
-#  rois = [line.rstrip('\n') for line in f]
-#  sites = [roi.split('/')[-1] for roi in rois]
+  rois = [line.rstrip('\n') for line in f]
+  sites = [roi.split('/')[-1] for roi in rois]
   
-#  for i, roi, in enumerate(rois):
-#    print(sites[i])
-#    export_landcover(bucket_name, roi, 'Ameriflux_sites/{}_starfm/landcover/'.format(sites[i]))
+  for i, roi, in enumerate(rois):
+    print(sites[i])
+    print(roi)
+    export_landcover(bucket_name, roi, 'Ranch_Runs/HLD/{}/landcover/'.format(sites[i]))
