@@ -13,11 +13,14 @@ The general process for running a new region goes as follows:
 
 # Usage
 Major processes have been bundled into three pipelines. At this stage of development, the pipelines are the preferable way to run the full process:
+
 ## 1. GEE_pipeline.py
    - handles downloading of landsat and modis imagery for input into starfm algorithm, covariate data downloads, and landcover downloads
    - only required inputs are a configuration file and a region of interest in .geojson format
    - can handle a .geojson file that contains multiple regions for downloading i.e. if you are working with a large area split into tiles
 ```
+from RCTM.pipelines.GEE_pipeline GEEPipeline
+
 #initialize downloads pipeline with geometry
 pipe = GEEPipeline(config_filename='/home/amullen/Rangeland-Carbon/examples/config/test_config.yaml')
 pipe.init_pipeline_from_geometry() #populates rows for each geometry in workflow status file to dictate pocessing
@@ -49,6 +52,8 @@ Once all imagery, covariates, and landcover datasets are downloaded you may proc
    - fuses RAP and NLCD landcover products to determine spatial plant-functional types (PFTs) for RCTM
    - based on the generated PFT maps and parameter file, creates spatial set of parameters for running RCTM
 ```
+from RCTM.pipelines.RCTM_preprocessing_pipeline import RCTMPrePipeline
+
 pipe=RCTMPrePipeline(config_filename='/home/amullen/Rangeland-Carbon/examples/config/test_config.yaml', rctm_param_filename='/home/amullen/Rangeland-Carbon/RCTM/modeling/RCTM_params.yaml')
 pipe.smooth_modis()
 pipe.starfm()
@@ -62,6 +67,8 @@ pipe.gen_RCTM_params()
    - Transient modeling only supports spatial runs currently
    - Can run with PFT maps or force a single PFT
 ```
+from RCTM.pipelines.RCTM_model_pipeline RCTMPipeline
+
 pipe=RCTMPipeline(config_filename='/home/amullen/Rangeland-Carbon/examples/config/test_config.yaml')
 pipe.run_RCTM()
 ```
