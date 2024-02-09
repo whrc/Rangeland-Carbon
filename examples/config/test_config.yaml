@@ -1,0 +1,87 @@
+## params defining file i/o locations locally and on the cloud ##
+workflows_path: '/home/amullen/Rangeland-Carbon/examples/workflows/test_single_poly/'
+path_to_temp_dir: '/home/amullen/temp/'
+
+######################################## google cloud ############################################
+bucket_name: 'rangelands'
+
+####################################### Google Earth Engine #####################################
+service_account: 'rctm-07dea6fa718fdd0921f124263@rangelands-explo-1571664594580.iam.gserviceaccount.com'
+gee_key_json: '/home/amullen/Rangeland-Carbon/RCTM/res/gee_key.json'
+gcloud_project: 'rangelands-explo-1571664594580'
+
+## params defining geometry to process ##
+geometry_polygon: 'single' #'multi' for multiple polygons in single file, or 'single' for single polygon in file
+path_to_geometry_local: '/home/amullen/Rangeland-Carbon/examples/geometries/test_poly.geojson' #path to local geometry .geojson file
+ee_geometry_save_dir: 'projects/rangelands-explo-1571664594580/assets/RCTM_test_assets/' #path to folder in which to save ee geometry assets
+shape_name_col: 'Name' #geometry attribute containing the name of the geometry, this is necesarry for naming uploaded assets
+path_to_existing_ee_geom: 'projects/rangelands-explo-1571664594580/assets/RCTM_test_assets/test_poly'#path to upload local geometry as EE asset, or path to existing geometry asset
+overwrite_geom_assets: False # whether to overwrite existing EE asset geometries with the same name
+
+## params defining starfm landsat downloads ##
+sfm_imagery_download_date_range: ['2002-01-01', '2003-01-01']
+landsat_save_dir: 'test_data/landsat/'
+landsat_overwrite: True
+
+## params defining modis imagery downloads ##
+modis_date_download_interval: 5
+modis_save_dir: 'test_data/modis/'
+modis_overwrite: True
+
+## params defining covariate imagery downloads ##
+covariates_save_dir: 'test_data/covariates/'
+covariates_overwrite: True
+
+## params defining landcover downloads ##
+landcover_save_dir: 'test_data/landcover/'
+landcover_overwrite: True
+
+################################### preprocessing ##########################################
+
+## RCTM preprocessing params ##
+modis_smooth_in_dir : 'test_data/modis/'
+modis_smooth_out_dir : 'test_data/modis_smooth/'
+
+## STARFM params ##
+starfm_in_modis_dir : 'test_data/modis_smooth/'
+starfm_in_landsat_dir : 'test_data/landsat/'
+starfm_out_dir: 'test_data/starfm/'
+starfm_source: '/home/amullen/Rangeland-Carbon/RCTM/remote_sensing/starfm_source/'
+
+## RCTM params ##
+RCTM_input_dir: 'test_data/RCTM_ins/'
+spatial_param_outname: 'test_data/params/spatial_params.tif'
+fused_landcover_outname: 'test_data/landcover/fused_landcover.tif'
+
+################################### modeling ##########################################
+#model config
+point_mode: False
+spin_years: 100
+run_transient: True
+init_C_stocks_with_image: False
+    
+#params
+path_to_RCTM_params: '/home/amullen/Rangeland-Carbon/RCTM/templates/RCTM_params.yaml'
+path_to_RCTM_spatial_params: 'test_data/params/spatial_params.tif'
+    
+#C stock initialization files
+C_stock_inits_yaml: '/home/amullen/Rangeland-Carbon/RCTM/templates/C_stock_inits.yaml'
+C_stock_init_image: None
+    
+#spinup covariate files
+path_to_spin_covariates_point: 'test_data/RCTM_ins/RCTM_spin_inputs.csv'
+path_to_spin_covariates_spatial: 'test_data/RCTM_ins/RCTM_spin_inputs.nc'
+    
+#spinup C stock output
+C_stock_spin_out_path_point: 'test_data/RCTM_output/spinup/RCTM_C_stocks_spin_outputs.csv'
+C_stock_spin_out_path: 'test_data/RCTM_output/spinup/RCTM_C_stocks_spin_outputs.tif'
+    
+#spinup figure output
+spatial_spin_fig_path: 'test_data/RCTM_output/spinup/figs/spin_fig.jpg'
+    
+#transient covariate inputs
+transient_covariate_path: 'test_data/RCTM_ins/RCTM_inputs.nc'
+    
+#transient results output
+transient_C_stock_hist: 'test_data/RCTM_output/transient/C_stock_hist.nc'
+transient_flux_hist: 'test_data/RCTM_output/transient/flux_hist.nc'
