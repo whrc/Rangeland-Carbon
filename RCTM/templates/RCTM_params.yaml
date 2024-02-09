@@ -1,0 +1,169 @@
+RCTM_params:
+  grassland:
+    starfm:
+      ndvi_02: 0.11484585580000001
+      ndvi_98: 0.7500618849999999
+      ndvi_sr_02: 1.259493460127564
+      ndvi_sr_98: 7.001980818796804
+      LUEmax: 1.001
+      MIN_Tmn: -37.607
+      MAX_Tmx: 13.215
+      MIN_VPD: 0.348
+      MAX_VPD: 1.841
+      MIN_SMrz: 0.085
+      MAX_SMrz: 0.998
+      fPAR_min: 0.05541246
+      fPAR_max: 0.80167811
+      error-sd: 3.32
+      F_Ra : 0.4471
+      F_Root : 0.6294
+      k_AGL : 0.0184
+      k_BGL : 0.0256
+      k_POC : 0.00059
+      k_HOC : 0.00027
+      CSE_AGL : 0.3966
+      CSE_BGL : 0.3356
+      CSE_POC : 0.4432
+      CSE_HOC : 0.4791
+      MIN_SMsf : 10.4501
+      MAX_SMsf : 62.7208
+      beta0 : 242.4803
+      beta1 : 67.8736
+      beta2 : 227.0015
+      MIN_SMsd : 21.6836
+      MAX_SMsd : 67.6089
+      h_SMsd : 0.1429
+      l_SMsd : 0.0414
+      snsd : 0.7411
+      frt : 0.1462
+      MIN_SMrd : 29.2164
+      MAX_SMrd : 79.1575
+      rdt : 260.8033
+      h_SMrd : 0.0483
+      l_SMrd : 0.0169
+  hay-pasture:
+    starfm:
+      ndvi_02: 0.11484585580000001
+      ndvi_98: 0.7500618849999999
+      ndvi_sr_02: 1.259493460127564
+      ndvi_sr_98: 7.001980818796804
+      LUEmax: 1.001
+      MIN_Tmn: -37.607
+      MAX_Tmx: 13.215
+      MIN_VPD: 0.348
+      MAX_VPD: 1.841
+      MIN_SMrz: 0.085
+      MAX_SMrz: 0.998
+      fPAR_min: 0.05541246
+      fPAR_max: 0.80167811
+      error-sd: 3.32
+      F_Ra : 0.4471
+      F_Root : 0.6294
+      k_AGL : 0.0184
+      k_BGL : 0.0256
+      k_POC : 0.00059
+      k_HOC : 0.00027
+      CSE_AGL : 0.3966
+      CSE_BGL : 0.3356
+      CSE_POC : 0.4432
+      CSE_HOC : 0.4791
+      MIN_SMsf : 10.4501
+      MAX_SMsf : 62.7208
+      beta0 : 242.4803
+      beta1 : 67.8736
+      beta2 : 227.0015
+      MIN_SMsd : 21.6836
+      MAX_SMsd : 67.6089
+      h_SMsd : 0.1429
+      l_SMsd : 0.0414
+      snsd : 0.7411
+      frt : 0.1462
+      MIN_SMrd : 29.2164
+      MAX_SMrd : 79.1575
+      rdt : 260.8033
+      h_SMrd : 0.0483
+      l_SMrd : 0.0169
+  grass-shrub:
+    starfm:
+      ndvi_02: 0.11484585580000001
+      ndvi_98: 0.7500618849999999
+      ndvi_sr_02: 1.259493460127564
+      ndvi_sr_98: 7.001980818796804
+      LUEmax: 1.2
+      MIN_Tmn: -8.842
+      MAX_Tmx: 17.153
+      MIN_VPD: 0.232
+      MAX_VPD: 2.005
+      MIN_SMrz: 0.0012
+      MAX_SMrz: 0.83
+      fPAR_min: 0.04646488
+      fPAR_max: 1.04123008
+      error-sd: 1.64
+      F_Ra : 0.4419049
+      F_Root : 0.6177628
+      k_AGL : 0.02709616
+      k_BGL : 0.0227067
+      k_POC : 0.0005973455
+      k_HOC : 0.0002510139
+      CSE_AGL : 0.2758669
+      CSE_BGL : 0.391332
+      CSE_POC : 0.466591
+      CSE_HOC : 0.4753145
+      MIN_SMsf : 9.268101
+      MAX_SMsf : 74.73552
+      beta0 : 242.9471
+      beta1 : 67.99609
+      beta2 : 228.4562
+      MIN_SMsd : 18.83719
+      MAX_SMsd : 66.93769
+      h_SMsd : 0.1419407
+      l_SMsd : 0.05386024
+      snsd : 0.7763963
+      frt : 0.1403913
+      MIN_SMrd : 33.45701
+      MAX_SMrd : 80.06033
+      rdt : 252.6742
+      h_SMrd : 0.05176379
+      l_SMrd : 0.01656416
+  grass-tree:
+    starfm:
+      ndvi_02: 0.11484585580000001
+      ndvi_98: 0.7500618849999999
+      ndvi_sr_02: 1.259493460127564
+      ndvi_sr_98: 7.001980818796804
+      LUEmax: 1.125
+      MIN_Tmn: -32.701
+      MAX_Tmx: 57.871
+      MIN_VPD: 0.456
+      MAX_VPD: 1.721
+      MIN_SMrz: 0.00287
+      MAX_SMrz: 0.918
+      fPAR_min: -0.01149394
+      fPAR_max: 0.94367025
+      error-sd: 1.64
+      F_Ra : 0.4485
+      F_Root : 0.5942
+      k_AGL : 0.0270
+      k_BGL : 0.0248
+      k_POC : 0.00046
+      k_HOC : 0.00025
+      CSE_AGL : 0.2865
+      CSE_BGL : 0.3298
+      CSE_POC : 0.4015
+      CSE_HOC : 0.4159
+      MIN_SMsf : 4.6890
+      MAX_SMsf : 67.9168
+      beta0 : 244.6382
+      beta1 : 62.9232
+      beta2 : 226.2389
+      MIN_SMsd : 19.4030
+      MAX_SMsd : 67.3744
+      h_SMsd : 0.1493
+      l_SMsd : 0.0536
+      snsd : 0.7873
+      frt : 0.1509
+      MIN_SMrd : 25.6071
+      MAX_SMrd : 73.2186
+      rdt : 260.5097
+      h_SMrd : 0.0487
+      l_SMrd : 0.0150

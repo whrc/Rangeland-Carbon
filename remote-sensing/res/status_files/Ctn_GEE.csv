@@ -1,2 +1,0 @@
-roi,geometry,landsat_total,landsat_success,landsat_failed,modis_total,modis_success,modis_failed,imagery_downloaded
-projects/rangelands-explo-1571664594580/assets/Ameriflux_RS/Ctn/Ctn,"{'type': 'Polygon', 'coordinates': [[[-101.8565565214069, 43.94272410837846], [-101.83638351709999, 43.94272411232997], [-101.83638351709999, 43.95786279805809], [-101.8565565214069, 43.95786281150426], [-101.8565565214069, 43.94272410837846]]]}",1066.0,1066.0,0.0,0.0,0.0,0.0,2023-08-26 03:11:03.628472
