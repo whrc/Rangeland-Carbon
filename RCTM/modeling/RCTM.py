@@ -14,12 +14,6 @@ import os
 import yaml
 import time
 
-#google storage init
-#bucket_name='rangelands'
-#storage_client = storage.Client.from_service_account_json('/home/amullen/Rangeland-Carbon/res/gee_key.json')
-#bucket = storage_client.get_bucket(bucket_name)
-#path_to_temp = '/home/amullen/temp/'
-
 def InitCarbonModel(params, covariates, days=5):
   
   #initialize params for carbon modeling before a run
@@ -45,10 +39,6 @@ def InitCarbonModel(params, covariates, days=5):
   rdrs = params['rdt']
   
   rdr = xr.where(covariates['tsoil'] > rdrs, rdrg, 0)
-  
-  
-  
-  #covariates['GPP'] = covariates['GPP'] * days #total gpp for period
   
   covariates['NPP'] = covariates['GPP'] * (1-params['F_Ra']) #subtract 'F_Ra' (fraction autotrophic respiration) to get NPP
   
@@ -301,7 +291,13 @@ def main(force_pft, point_mode, spin_years, run_transient, init_C_stocks_with_im
        transient_C_stock_hist, transient_flux_hist, bucket, path_to_temp):
               
   if point_mode:
-  
+    
+    if force_pft is None:
+    
+      print('need to force a pft when runnning in point mode')
+      
+      return
+    
     print('running model in point mode')
     #get keys (param names), doesn't matter which pft since they all have the same parameters
     params = RCTM_params_point['RCTM_params'][force_pft]['starfm']
@@ -317,20 +313,22 @@ def main(force_pft, point_mode, spin_years, run_transient, init_C_stocks_with_im
     spin_covariates = spin_covariates.set_index('doy_bins_lower')
     spin_covariates = spin_covariates.to_xarray()
     
-  else:
+  else: #if not running point mode
+  
     print('running model in spatial mode')
     #Define parameters - these are calibrated parameters for RCTM v1.0
     params = rxr.open_rasterio('gs://' + bucket.name + '/' + path_to_RCTM_spatial_params, masked=True)
     params = rctmu.xr_dataset_to_data_array(params)
     
-    if force_pft!='':
+    if force_pft is not None:
+    
       print(f'forcing params to {force_pft}:')
       #open point param yaml file
       params_pft = RCTM_params_point['RCTM_params'][force_pft]['starfm']
       
       #loop through keys, setting spatially constant params for selected pft
       for p in params_pft.keys():
-        print(f'\t{p}: {params_point[p]}')
+        print(f'\t{p}: {params_pft[p]}')
         params[p].values = np.where(~np.isnan(params[p].values), params_pft[p], np.nan)
     
     #read spinup covariates
@@ -412,12 +410,14 @@ def main(force_pft, point_mode, spin_years, run_transient, init_C_stocks_with_im
       sns.lineplot(x=C_stock_hist['year'], y=C_stock_hist['POC'], ax=axes[4], label = 'POC')
       sns.lineplot(x=C_stock_hist['year'], y=C_stock_hist['HOC'], ax=axes[5], label = 'HOC')
       
-      plt.savefig(os.path.join(path_to_temp, f'temp_spin_fig_write_{force_pft}_{ts}.jpg'), dpi=300)
-      utils.gs_write_blob(os.path.join(path_to_temp, f'temp_spin_fig_write_{force_pft}_{ts}.jpg'), spatial_spin_fig_path, bucket)
-      os.remove(os.path.join(path_to_temp, f'temp_spin_fig_write_{force_pft}_{ts}.jpg'))
+      plt.savefig(os.path.join(path_to_temp, f'temp_spin_fig_write_{ts}.jpg'), dpi=300)
+      utils.gs_write_blob(os.path.join(path_to_temp, f'temp_spin_fig_write_{ts}.jpg'), spatial_spin_fig_path, bucket)
+      os.remove(os.path.join(path_to_temp, f'temp_spin_fig_write_{ts}.jpg'))
       #utils.image_average_variables(spin_covariates, ['GPP'], time_index = 'doy_bins_lower', plot_dir='output/RCTM')
   
   if point_mode or not run_transient:
+    if point_mode and run_transient:
+      print('point mode not yet implemented for transient')
     pass
   
   else:
@@ -426,8 +426,6 @@ def main(force_pft, point_mode, spin_years, run_transient, init_C_stocks_with_im
     
     crs = covariates.rio.crs.to_wkt()
     transform = covariates.rio.transform()
-    #C_stocks = rxr.open_rasterio(C_stock_spin_out_path, masked=True)
-    #C_stocks = rctmu.xr_dataset_to_data_array(C_stocks)
     
     covariates, C_stocks, C_stock_log = RCTM(C_stocks, covariates, params)
     
@@ -464,7 +462,6 @@ def main(force_pft, point_mode, spin_years, run_transient, init_C_stocks_with_im
     utils.gs_write_blob(os.path.join(path_to_temp, f'temp_fluxes_write_{ts}.nc'), transient_flux_hist, bucket)
     os.remove(os.path.join(path_to_temp, f'temp_fluxes_write_{ts}.nc'))
     
-      
     #utils.image_average_variables(covariates, ['GPP', 'Rh', 'Ra', 'NEE', 'NPP'], plot_dir='output/RCTM/transient')
   return
   

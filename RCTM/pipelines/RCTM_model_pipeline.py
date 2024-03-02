@@ -56,7 +56,7 @@ class RCTMPipeline(object):
   def run_RCTM(self):
     ## runs model ##
     
-    main(force_pft='', 
+    main(force_pft=self.conf.force_pft, 
          point_mode=self.conf.point_mode, 
          spin_years=self.conf.spin_years, 
          run_transient=self.conf.run_transient, 

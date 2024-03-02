@@ -64,6 +64,7 @@ class RCTMConfig:
     spin_years: Optional[int] = None
     run_transient: Optional[bool] = None
     init_C_stocks_with_image: Optional[bool] = None
+    force_pft: Optional[str] = None
     
     #params
     path_to_RCTM_params: Optional[str] = None
