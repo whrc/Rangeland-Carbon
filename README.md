@@ -36,7 +36,7 @@ export PYTHONPATH='{...}/Rangeland-Carbon'
    - only required inputs are a configuration file and a region of interest in .geojson format
    - can handle a .geojson file that contains multiple regions for downloading i.e. if you are working with a large area split into tiles
 ```
-from RCTM.pipelines.GEE_pipeline import  GEEPipeline
+from RCTM.pipelines.GEE_pipeline import GEEPipeline
 
 #initialize downloads pipeline with geometry
 pipe = GEEPipeline(config_filename='/home/amullen/Rangeland-Carbon/examples/config/test_config.yaml')
