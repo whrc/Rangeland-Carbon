@@ -15,6 +15,8 @@ from uuid import uuid4
 import time as t
 from multiprocessing import Pool
 import random
+import pandas as pd
+from utils import asset_exists
 
 def export_ds_to_cog_gcloud(ds, out_path, path_to_temp, bucket):
   #save as COG, Use tile dimensions of 256x256, include power of 2 overviews, LZW, compressor's zlevel to the maximum of 9
@@ -111,8 +113,9 @@ def build_manifest_for_tiles(cogs, asset):
   #manifest to json
   return
 
-def netCDF_to_EE_asset(path_to_nc = None, bands = None, path_to_cog_dir = None, project_folder = None, bucket_name = None, export_to_cog = False, save_to_image_collection = False, short_asset_path = None):
+def netCDF_to_EE_asset(path_to_nc = None, bands = None, path_to_cog_dir = None, project_folder = None, bucket_name = None, export_to_cog = False, save_to_image_collection = False, short_asset_path = None, date_range = None, overwrite_images = False):
   #open results net cdf for fluxes
+  
   if isinstance(path_to_nc, str):
     ds = rxr.open_rasterio(path_to_nc)
     ds = ds[bands]
@@ -136,6 +139,10 @@ def netCDF_to_EE_asset(path_to_nc = None, bands = None, path_to_cog_dir = None, 
   for i in range(0, len(ds.indexes['time'])):
 
     time = ds.indexes['time'][i]
+    
+    if pd.to_datetime(str(time).split(' ')[0]) < pd.to_datetime(date_range[0]) or pd.to_datetime(str(time).split(' ')[0]) > pd.to_datetime(date_range[1]):
+      continue
+    
     cog_path = os.path.join(path_to_cog_dir, '{}.tif'.format(str(time).split(' ')[0]))
     print(cog_path)
     asset_path= short_asset_path + '/' + str(time).split(' ')[0]
@@ -150,14 +157,17 @@ def netCDF_to_EE_asset(path_to_nc = None, bands = None, path_to_cog_dir = None, 
     if save_to_image_collection:
       
       if asset_exists(f'projects/{project_folder}/assets/' + asset_path):
-        print(f'asset: {asset_path} already exists! skipping')
-        #ee.data.deleteAsset(f'projects/{project_folder}/assets/' + asset_path)
-      
-      else:
+        print(f'asset: {asset_path} already exists!')
         
-        request = gen_request_body(f'gs://{bucket_name}/' + cog_path, str(time).split(' ')[0]+'T00:00:00.000000000Z')
-        result = send_request(project_folder, asset_path, request, session)
-        t.sleep(5)
+        if overwrite_images == False:
+          continue
+          
+        else:
+          ee.data.deleteAsset(f'projects/{project_folder}/assets/' + asset_path)
+        
+      request = gen_request_body(f'gs://{bucket_name}/' + cog_path, str(time).split(' ')[0]+'T00:00:00.000000000Z')
+      result = send_request(project_folder, asset_path, request, session)
+      t.sleep(5)
         
   ds = None
     
@@ -168,59 +178,93 @@ credentials = compute_engine.Credentials()
 ee.Initialize(credentials, project='rangelands-explo-1571664594580')
 session = AuthorizedSession(credentials)
 
-storage_client = storage.Client.from_service_account_json('/home/amullen/Rangeland-Carbon/res/gee_key.json')
+storage_client = storage.Client.from_service_account_json('/home/amullen/res/gee_key.json')
 path_to_temp = '/home/amullen/temp/'
 project_folder = 'rangelands-explo-1571664594580'
-site = 'HLD'
+site = 'MCK'
 bucket_name='rangelands'
 bucket = storage_client.get_bucket(bucket_name)
 
+path_to_fluxes = f'gs://rangelands/Ranch_Runs/{site}/results/flux_hist_weighted_filtered.nc'
+path_to_C_stocks = f'gs://rangelands/Ranch_Runs/{site}/results/C_stock_hist_weighted_filtered.nc'
 
-roi_file='/home/amullen/Rangeland-Carbon/res/site_footprints/HLD_tiles.txt'
+print('opening C stocks')
+#C_stocks=rxr.open_rasterio(path_to_C_stocks)
+
+#fluxes = rxr.open_rasterio(path_to_fluxes)
+print('calculating TSOC')
+#C_stocks=C_stocks[['POC', 'HOC']].astype(np.float64)
+#C_stocks['TSOC'] = C_stocks['POC'] + C_stocks['HOC'] + 1000
+#C_stocks['TSOC'].attrs = C_stocks['POC'].attrs
+
+
+path_to_cog_dir_fluxes = f'Ranch_Runs/{site}/results/cog/fluxes'
+path_to_cog_dir_C_stocks = f'Ranch_Runs/{site}/results/cog/C_stocks'
+      
+#cogs_fluxes.append('gs://rangelands/' + path_to_cog_dir_fluxes)
+#cogs_C_stocks.append('gs://rangelands/' + path_to_cog_dir_C_stocks)
+  
+      
+short_asset_path_fluxes = f'Ranches/{site}/fluxes'
+short_asset_path_C_stocks = f'Ranches/{site}/C_stocks'
+      
+#assets_fluxes.append(f'projects/{project_folder}/assets/' + short_asset_path_fluxes)
+#assets_C_stocks.append(f'projects/{project_folder}/assets/' + short_asset_path_C_stocks)
+
+print('fluxes to COG')
+netCDF_to_EE_asset(path_to_fluxes, ['GPP', 'NEE', 'Rh'], path_to_cog_dir_fluxes, project_folder, bucket_name, export_to_cog = True, save_to_image_collection = False, short_asset_path = short_asset_path_fluxes, date_range = ['2002-01-01', '2003-01-01'])
+netCDF_to_EE_asset(path_to_nc = path_to_fluxes, bands = ['GPP', 'NEE', 'Rh'], path_to_cog_dir = path_to_cog_dir_fluxes, project_folder = project_folder, bucket_name = bucket_name, export_to_cog = False, save_to_image_collection = True, short_asset_path = short_asset_path_fluxes, date_range = ['2002-01-01', '2003-01-01'], overwrite_images = True)
+
+print('C stocks to COG')
+#netCDF_to_EE_asset(C_stocks, ['POC', 'HOC', 'TSOC'], path_to_cog_dir_C_stocks, project_folder, bucket_name, export_to_cog = True, save_to_image_collection = False, short_asset_path = short_asset_path_C_stocks, date_range = ['2021-01-01', '2023-01-01'])
+#netCDF_to_EE_asset(path_to_nc = path_to_C_stocks, bands = ['POC', 'HOC'], path_to_cog_dir = path_to_cog_dir_C_stocks, project_folder = project_folder, bucket_name = bucket_name, export_to_cog = False, save_to_image_collection = True, short_asset_path = short_asset_path_C_stocks, date_range = ['2021-01-01', '2023-01-01'], overwrite_images = True)
+
+
+#roi_file='/home/amullen/Rangeland-Carbon/res/site_footprints/HLD_tiles.txt'
 
 #cogs need to point to 'HLD/tile/date'
-cogs_fluxes=[]
-cogs_C_stocks=[]
+#cogs_fluxes=[]
+#cogs_C_stocks=[]
 
 #asset needs to point to 'HLD/date'
-assets_fluxes=[]
-assets_C_stocks=[]
+#assets_fluxes=[]
+#assets_C_stocks=[]
 
-with open(roi_file) as f:
-  tiles = [line.rstrip('\n') for line in f]
+#with open(roi_file) as f:
+#  tiles = [line.rstrip('\n') for line in f]
   
-  for tile in tiles:
-    site='/'.join(tile.split('/')[-2:])
-    #open results net cdf for fluxes
-    if site not in ['HLD/G1', 'HLD/G2', 'HLD/G3', 'HLD/G4', 'HLD/G5', 'HLD/G6', 'HLD/F1', 'HLD/F2', 'HLD/F3', 'HLD/F4', 'HLD/F5', 'HLD/F6', 
-                    'HLD/E1', 'HLD/E2', 'HLD/E3', 'HLD/E4', 'HLD/E5', 'HLD/E6', 'HLD/D2', 'HLD/D3', 'HLD/D4', 'HLD/D5', 'HLD/C2', 'HLD/C3', 'HLD/C4', 'HLD/C5', 'HLD/C6']:
-      path_to_fluxes = f'gs://rangelands/Ranch_Runs/{site}/results/flux_hist_weighted.nc'
-      path_to_C_stocks = f'gs://rangelands/Ranch_Runs/{site}/results/C_stock_hist_weighted.nc'
-      #C_stocks=rxr.open_rasterio(path_to_C_stocks)
-      #C_stocks=C_stocks[['POC', 'HOC']].astype(np.float64)
-      #C_stocks['TSOC'] = C_stocks['POC'] + C_stocks['HOC'] + 1000
-      #C_stocks['TSOC'].attrs = C_stocks['POC'].attrs
+#  for tile in tiles:
+#    site='/'.join(tile.split('/')[-2:])
+#    #open results net cdf for fluxes
+#    if site not in ['HLD/G1', 'HLD/G2', 'HLD/G3', 'HLD/G4', 'HLD/G5', 'HLD/G6', 'HLD/F1', 'HLD/F2', 'HLD/F3', 'HLD/F4', 'HLD/F5', 'HLD/F6', 
+#                    'HLD/E1', 'HLD/E2', 'HLD/E3', 'HLD/E4', 'HLD/E5', 'HLD/E6', 'HLD/D2', 'HLD/D3', 'HLD/D4', 'HLD/D5', 'HLD/C2', 'HLD/C3', 'HLD/C4', 'HLD/C5', 'HLD/C6']:
+#      path_to_fluxes = f'gs://rangelands/Ranch_Runs/{site}/results/flux_hist_weighted.nc'
+#      path_to_C_stocks = f'gs://rangelands/Ranch_Runs/{site}/results/C_stock_hist_weighted.nc'
+#      #C_stocks=rxr.open_rasterio(path_to_C_stocks)
+#      #C_stocks=C_stocks[['POC', 'HOC']].astype(np.float64)
+#      #C_stocks['TSOC'] = C_stocks['POC'] + C_stocks['HOC'] + 1000
+#      #C_stocks['TSOC'].attrs = C_stocks['POC'].attrs
       
-      path_to_cog_dir_fluxes = f'Ranch_Runs/{site}/results/cog/fluxes'
-      path_to_cog_dir_C_stocks = f'Ranch_Runs/{site}/results/cog/C_stocks'
+#      path_to_cog_dir_fluxes = f'Ranch_Runs/{site}/results/cog/fluxes'
+#      path_to_cog_dir_C_stocks = f'Ranch_Runs/{site}/results/cog/C_stocks'
       
-      cogs_fluxes.append('gs://rangelands/' + path_to_cog_dir_fluxes)
-      cogs_C_stocks.append('gs://rangelands/' + path_to_cog_dir_C_stocks)
+#      cogs_fluxes.append('gs://rangelands/' + path_to_cog_dir_fluxes)
+#      cogs_C_stocks.append('gs://rangelands/' + path_to_cog_dir_C_stocks)
   
       
-      short_asset_path_fluxes = f'Ranches/{site}/fluxes'
-      short_asset_path_C_stocks = f'Ranches/{site}/C_stocks'
+#      short_asset_path_fluxes = f'Ranches/{site}/fluxes'
+#      short_asset_path_C_stocks = f'Ranches/{site}/C_stocks'
       
-      assets_fluxes.append(f'projects/{project_folder}/assets/' + short_asset_path_fluxes)
-      assets_C_stocks.append(f'projects/{project_folder}/assets/' + short_asset_path_C_stocks)
+#      assets_fluxes.append(f'projects/{project_folder}/assets/' + short_asset_path_fluxes)
+#      assets_C_stocks.append(f'projects/{project_folder}/assets/' + short_asset_path_C_stocks)
       
-      #netCDF_to_EE_asset(path_to_fluxes, ['GPP', 'NEE', 'Rh'], path_to_cog_dir_fluxes, project_folder, bucket_name, save_to_image_collection = False, short_asset_path = short_asset_path_fluxes)
-      netCDF_to_EE_asset(path_to_nc = path_to_fluxes, bands = ['GPP', 'NEE', 'Rh'], path_to_cog_dir = path_to_cog_dir_fluxes, project_folder = project_folder, bucket_name = bucket_name, export_to_cog = False, save_to_image_collection = True, short_asset_path = short_asset_path_fluxes)
+#      #netCDF_to_EE_asset(path_to_fluxes, ['GPP', 'NEE', 'Rh'], path_to_cog_dir_fluxes, project_folder, bucket_name, save_to_image_collection = False, short_asset_path = short_asset_path_fluxes)
+#      netCDF_to_EE_asset(path_to_nc = path_to_fluxes, bands = ['GPP', 'NEE', 'Rh'], path_to_cog_dir = path_to_cog_dir_fluxes, project_folder = project_folder, bucket_name = bucket_name, export_to_cog = False, save_to_image_collection = True, short_asset_path = short_asset_path_fluxes)
       
-      #netCDF_to_EE_asset(C_stocks, ['POC', 'HOC', 'TSOC'], path_to_cog_dir_C_stocks, project_folder, bucket_name, save_to_image_collection = False, short_asset_path = short_asset_path_C_stocks)
-      netCDF_to_EE_asset(path_to_nc = path_to_C_stocks, bands = ['POC', 'HOC'], path_to_cog_dir = path_to_cog_dir_C_stocks, project_folder = project_folder, bucket_name = bucket_name, export_to_cog = False, save_to_image_collection = True, short_asset_path = short_asset_path_C_stocks)
+#      #netCDF_to_EE_asset(C_stocks, ['POC', 'HOC', 'TSOC'], path_to_cog_dir_C_stocks, project_folder, bucket_name, save_to_image_collection = False, short_asset_path = short_asset_path_C_stocks)
+#      netCDF_to_EE_asset(path_to_nc = path_to_C_stocks, bands = ['POC', 'HOC'], path_to_cog_dir = path_to_cog_dir_C_stocks, project_folder = project_folder, bucket_name = bucket_name, export_to_cog = False, save_to_image_collection = True, short_asset_path = short_asset_path_C_stocks)
       
-      C_stocks = None
+#      C_stocks = None
 
 #if asset_exists(f'projects/{project_folder}/assets/' + 'Ranches/HLD/fluxes'):
 #  print(f'image collection exists')

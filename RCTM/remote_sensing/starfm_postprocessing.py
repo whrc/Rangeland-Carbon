@@ -175,13 +175,7 @@ def get_spatial_RCTM_params(NLCD_in_dir, RAP_in_dir, params, fused_landcover_out
   landcover[RAP_landcover.values[4]>=RAP_thresholds['grass-shrub']] = 2
   landcover[RAP_landcover.values[5]>=RAP_thresholds['grass-tree']] = 3
   
-  
   #loop through params and pfts setting spatial params
-  #for i, key in enumerate(keys):
-  #  for nlcd_key in NLCD_LUT.keys():
-  #    spatial_params[i][np.isin(NLCD_landcover.values[0], NLCD_grass)] = params['RCTM_params']['grassland'][param_type][key]
-  #    spatial_params[i][np.isin(NLCD_landcover.values[0], NLCD_shrub)] = params['RCTM_params']['grass-shrub'][param_type][key]
-  #    spatial_params[i][np.isin(NLCD_landcover.values[0], NLCD_tree)] = params['RCTM_params']['grass-tree'][param_type][key]
   for i, key in enumerate(keys):
     spatial_params[i][landcover==1] = params['RCTM_params']['grassland'][param_type][key]
     spatial_params[i][landcover==2] = params['RCTM_params']['grass-shrub'][param_type][key]
@@ -194,6 +188,7 @@ def get_spatial_RCTM_params(NLCD_in_dir, RAP_in_dir, params, fused_landcover_out
                                               'x':NLCD_landcover.x.values 
                                               },
                                       attrs=dict(description="landcover"))
+                                      
   #write spatial information and set nodata value to 0                                 
   landcover_DataArray.rio.write_crs(NLCD_landcover.rio.crs.to_wkt(), inplace=True)
   landcover_DataArray.rio.write_transform(NLCD_landcover.rio.transform(), inplace=True)
@@ -210,6 +205,7 @@ def get_spatial_RCTM_params(NLCD_in_dir, RAP_in_dir, params, fused_landcover_out
                                               'x':NLCD_landcover.x.values 
                                               },
                                       attrs=dict(description="landcover", long_name=list(keys)))
+                                      
   #write spatial information and set nodata value to 0                                 
   param_DataArray.rio.write_crs(NLCD_landcover.rio.crs.to_wkt(), inplace=True)
   param_DataArray.rio.write_transform(NLCD_landcover.rio.transform(), inplace=True)

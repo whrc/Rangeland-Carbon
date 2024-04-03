@@ -19,7 +19,7 @@ Major processes have been bundled into three pipelines. At this stage of develop
    - only required inputs are a configuration file and a region of interest in .geojson format
    - can handle a .geojson file that contains multiple regions for downloading i.e. if you are working with a large area split into tiles
 ```
-from RCTM.pipelines.GEE_pipeline GEEPipeline
+from RCTM.pipelines.GEE_pipeline import  GEEPipeline
 
 #initialize downloads pipeline with geometry
 pipe = GEEPipeline(config_filename='/home/amullen/Rangeland-Carbon/examples/config/test_config.yaml')
@@ -67,7 +67,7 @@ pipe.gen_RCTM_params()
    - Transient modeling only supports spatial runs currently
    - Can run with PFT maps or force a single PFT
 ```
-from RCTM.pipelines.RCTM_model_pipeline RCTMPipeline
+from RCTM.pipelines.RCTM_model_pipeline import RCTMPipeline
 
 pipe=RCTMPipeline(config_filename='/home/amullen/Rangeland-Carbon/examples/config/test_config.yaml')
 pipe.run_RCTM()
