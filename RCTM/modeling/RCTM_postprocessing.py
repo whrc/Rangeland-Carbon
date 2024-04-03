@@ -96,6 +96,8 @@ def spatial_filter(netcdf_file, save_path, bucket, sd_threshold=10):
      None
   """
   ds = rxr.open_rasterio(netcdf_file, masked=True)
+  crs=ds.rio.crs.to_wkt()
+  transform = ds.rio.transform()
   
   median = ds.median(dim=['x', 'y'])
   std = ds.std(dim=['x', 'y'])
@@ -103,9 +105,18 @@ def spatial_filter(netcdf_file, save_path, bucket, sd_threshold=10):
   ds = ds.where(abs(ds - median) < std * sd_threshold)
   ds = ds.interpolate_na(dim=['y', 'x'], method="linear")
   
+  ds.rio.write_crs(crs, inplace=True)
+  ds.rio.write_transform(transform, inplace=True)
+  ds.rio.nodata=0
+  
+  ds.to_netcdf(os.path.join(path_to_temp, 'temp_average_write.nc'))
   utils.gs_write_blob(os.path.join(path_to_temp, 'temp_average_write.nc'), save_path, bucket)
-  utils.image_average_variables(ds, ['GPP', 'NEE', 'NPP', 'Ra', 'Rh'], time_index = 'time', plot_dir='/home/amullen/figs')
-  ds.to_zarr('gs://rangelands/Ranch_Runs/MCK/results/flux_hist_weighted_filtered.zarr')
+  
+  try:
+    utils.image_average_variables(ds, ['GPP', 'NEE', 'NPP', 'Ra', 'Rh'], time_index = 'time', plot_dir='/home/amullen/figs')
+  except:
+    utils.image_average_variables(ds, ['AGB', 'BGB', 'AGL', 'BGL', 'HOC', 'POC'], time_index = 'time', plot_dir='/home/amullen/figs')
+  #ds.to_zarr('gs://rangelands/Ranch_Runs/MCK/results/flux_hist_weighted_filtered.zarr')
 
   
 #spatial_filter('gs://rangelands/Ranch_Runs/MCK/results/C_stock_hist_weighted.nc', 'Ranch_Runs/MCK/results/C_stock_hist_weighted_filtered.nc', bucket)
