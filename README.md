@@ -14,7 +14,7 @@ The general process for running a new region goes as follows:
 # Usage
 Major processes have been bundled into three pipelines. At this stage of development, the pipelines are the preferable way to run the full process:
 
-## Environment Setup
+## Setup
 ### Installing the conda environent
 The conda environment required to run RCTM is stored in conda_env/rctm.yml
 
@@ -30,6 +30,10 @@ Make sure to set the PYTHONPATH environment variable to the Rangeland-Carbon dir
 ```
 export PYTHONPATH='{...}/Rangeland-Carbon'
 ```
+
+### Config file
+
+A config file is required to run the model. An example config file is located in examples/config/test_config.yaml
 
 ## 1. GEE_pipeline.py
    - handles downloading of landsat and modis imagery for input into starfm algorithm, covariate data downloads, and landcover downloads
