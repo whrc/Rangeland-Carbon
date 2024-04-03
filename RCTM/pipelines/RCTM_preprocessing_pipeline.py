@@ -75,20 +75,28 @@ class RCTMPrePipeline(object):
   # Processes
   # -------------------------------------------------------------------------    
   def smooth_modis(self):
+  
+    # implements moving window linear smoothing of MODIS imagery
       
     smooth_modis_col(self.conf.modis_smooth_in_dir, self.conf.modis_smooth_out_dir, self.bucket, self.conf.path_to_temp_dir, windowsize='20d', min_periods=1)
     
     return
     
   def starfm(self):
-  
+    
+    # run starfm
+    
     runlist=get_runlist(self.conf.starfm_in_modis_dir, self.conf.starfm_in_landsat_dir, self.conf.starfm_out_dir, self.bucket)
     run_starfm(runlist, self.conf.path_to_temp_dir, self.bucket, self.conf.starfm_source)
     
     return
   
   def starfm_postprocessing(self):
-  
+    
+    # generate RCTM spatial inputs, plot time series averages of inputs, 
+    # condense spatial files into spatial average time series csv for running in point mode
+    # generates input data for both spinup and transient period
+    
     #gen covariates
     ds = gen_covariates(self.conf.starfm_out_dir, self.conf.covariates_save_dir,  self.conf.RCTM_input_dir, 'RCTM_inputs.nc', self.bucket, '2002-01-01', '2005-12-31', self.conf.path_to_temp_dir, gap_fill = True)
     #average indices
@@ -104,7 +112,7 @@ class RCTMPrePipeline(object):
   
     get_spatial_RCTM_params(os.path.join(self.conf.landcover_save_dir, 'NLCD_2019.tif'), os.path.join(self.conf.landcover_save_dir, 'RAP_2019.tif'), self.RCTM_params, self.conf.fused_landcover_outname, self.conf.spatial_param_outname, self.bucket, self.conf.path_to_temp_dir, param_type='starfm')
     
-pipe=RCTMPrePipeline(config_filename='/home/amullen/Rangeland-Carbon/examples/config/test_config.yaml', rctm_param_filename='/home/amullen/Rangeland-Carbon/RCTM/modeling/RCTM_params.yaml')
+#pipe=RCTMPrePipeline(config_filename='/home/amullen/Rangeland-Carbon/examples/config/test_config.yaml', rctm_param_filename='/home/amullen/Rangeland-Carbon/RCTM/modeling/RCTM_params.yaml')
 #pipe.smooth_modis()
 #pipe.starfm()
 #pipe.starfm_postprocessing()
