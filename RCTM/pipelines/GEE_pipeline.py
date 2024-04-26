@@ -404,12 +404,10 @@ class GEEPipeline(object):
       landcover_status = None
           
 
-pipe = GEEPipeline(config_filename='/home/amullen/Rangeland-Carbon/examples/config/test_config.yaml')
-#pipe.clean_status_files()
+#pipe = GEEPipeline(config_filename='/home/amullen/Rangeland-Carbon/examples/config/test_config.yaml')
 #pipe.init_pipeline_from_geometry() #populates rows for each geometry in workflow status file to dictate pocessing
-pipe.download_landsat_imagery() #downloads landsat imagery for regions in workflow status file
-pipe.download_modis_imagery() #uses landsat image dates from landsat status file to download every five days of modis + landsat dates
-pipe.download_covariates() #uses modis status file to download covariates for each modis date
-pipe.download_landcover()#downloads landcover for regions in workflow status file
-#cancel_running_tasks()
-pipe.update_status()
+#pipe.download_landsat_imagery() #downloads landsat imagery for regions in workflow status file
+#pipe.download_modis_imagery() #uses landsat image dates from landsat status file to download every five days of modis + landsat dates
+#pipe.download_covariates() #uses modis status file to download covariates for each modis date
+#pipe.download_landcover()#downloads landcover for regions in workflow status file
+#pipe.update_status()
