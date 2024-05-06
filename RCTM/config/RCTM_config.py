@@ -54,6 +54,7 @@ class RCTMConfig:
     starfm_in_landsat_dir : Optional[str] = None
     starfm_out_dir: Optional[str] = None
     starfm_source: Optional[str] = None
+    starfm_config: Optional[str] = None
     
     RCTM_input_dir: Optional[str] = None
     spatial_param_outname: Optional[str] = None
