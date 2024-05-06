@@ -47,6 +47,8 @@ starfm_in_modis_dir : 'test_data/modis_smooth/' # gcloud path
 starfm_in_landsat_dir : 'test_data/landsat/' # gcloud path
 starfm_out_dir: 'test_data/starfm/' # gcloud path
 starfm_source: '/home/amullen/Rangeland-Carbon/RCTM/remote_sensing/starfm_source/'
+starfm_config: '/home/amullen/Rangeland-Carbon/RCTM/config/input_ref.txt'
+
 
 ## RCTM params ##
 RCTM_input_dir: 'test_data/RCTM_ins/' # gcloud path

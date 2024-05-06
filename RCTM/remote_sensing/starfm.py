@@ -95,6 +95,7 @@ def get_runlist(in_modis_dir, in_landsat_dir, sfm_out_dir, bucket, modland_match
   
   df_modpred = df_modpred[df_modpred['landsat1'].notnull()]
   df_modpred = df_modpred[df_modpred['modland1'].notnull()]
+
   print('done')
   return df_modpred
   
@@ -139,7 +140,7 @@ def resample_and_save(source_path, out_path, target_xds = None, landsat1=False):
   
   return True
 
-def run_starfm(runlist, path_to_temp_dir, bucket, starfm_source):
+def run_starfm(runlist, path_to_temp_dir, bucket, starfm_source, starfm_config):
     bands = ['red', 'nir']
 
     for index, row in runlist.iterrows():
@@ -225,7 +226,7 @@ def run_starfm(runlist, path_to_temp_dir, bucket, starfm_source):
         num_cols = 'NCOLS = 77'
         new_num_cols = 'NCOLS = {}'.format(shape_x)
 
-        f = open(os.path.join(starfm_source, 'input_ref.txt'),'r')
+        f = open(starfm_config,'r')
         filedata = f.read()
         f.close()        
         newdata = filedata.replace(ls1_name,ls1_new_name)
@@ -265,10 +266,10 @@ def run_starfm(runlist, path_to_temp_dir, bucket, starfm_source):
         
         print('running starfm')
         
-        f = open(os.path.join(starfm_source, 'input_ref_test.txt'),'w')
+        f = open(os.path.join(starfm_source, 'starfm_config.txt'),'w')
         f.write(newdata)
         f.close()
-        subprocess.run([os.path.join(starfm_source, 'StarFM.exe'), os.path.join(starfm_source, 'input_ref_test.txt')])
+        subprocess.run([os.path.join(starfm_source, 'StarFM.exe'), os.path.join(starfm_source, 'starfm_config.txt')])
         #!./StarFM.exe input_ref_test.txt
 
       if os.stat(os.path.join(path_to_temp_dir,'starfm_test_{}.bin'.format(bands[0]))).st_size==0:
