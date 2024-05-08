@@ -1,0 +1,350 @@
+var daymet = ee.ImageCollection("NASA/ORNL/DAYMET_V4"),
+    SoilGrid = ee.ImageCollection("projects/project_name/assets/path-to-processed-soilgrid-dataset/SoilGrid100"),
+    stColl = ee.ImageCollection("projects/project_name/assets/path-to-processed-NLDAS-soil-temperature-dataset/NLDAST"),
+    smColl = ee.ImageCollection("projects/project_name/assets/path-to-processed-NLDAS-soil-moisture-dataset/NLDAS"),
+    eviColl = ee.ImageCollection("MODIS/MOD09GA_006_EVI"),
+    fparColl = ee.ImageCollection("MODIS/061/MCD15A3H"),
+    NLDAS = ee.ImageCollection("NASA/NLDAS/FORA0125_H002");
+
+//Import shapefiles for flux tower sites 
+
+//Define site and temporal period
+var site = sitename; //Define site using desired shapefile name
+var site_name = "sitename"
+var start = "2002-01-01"; //Define a start date
+var end = "2005-01-01"; //Define an end date
+
+//Define functions to extract covariate datasets with the desired units and bands
+function vpdFunc (img){
+    var vpd = img.select("vpd").multiply(1000);
+    var img = img.select(['tmmn','tmmx','srad','pr']).addBands(vpd);
+    return img.select(['tmmn','tmmx','srad','pr','vpd']);
+}
+function tminFunc (img){
+    var tmmn = img.select("tmmn").subtract(273.15);
+    var img = img.select(['vpd','tmmx','srad','pr']).addBands(tmmn);
+    return img.select(['tmmn','tmmx','srad','pr','vpd']);
+}
+function tmaxFunc (img){
+    var tmmx = img.select("tmmx").subtract(273.15);
+    var img = img.select(['vpd','tmmn','srad','pr']).addBands(tmmx);
+    return img.select(['tmmn','tmmx','srad','pr','vpd']);
+}
+
+//Process input datasets
+var daymet = daymet.filterDate(start, end).filterBounds(site).select(['tmin','tmax','srad','vp','prcp']);
+var bd1 = SoilGrid.filterMetadata('system:index', 'equals','bd_d2').toBands().rename("bd1") 
+var bd2 = SoilGrid.filterMetadata('system:index', 'equals','bd_d3').toBands().rename("bd2") 
+var bd3 = SoilGrid.filterMetadata('system:index', 'equals','bd_d4').toBands().rename("bd3") 
+var clay1 = SoilGrid.filterMetadata('system:index', 'equals','clay_d2').toBands().rename("clay1") 
+var clay2 = SoilGrid.filterMetadata('system:index', 'equals','clay_d3').toBands().rename("clay2") 
+var clay3 = SoilGrid.filterMetadata('system:index', 'equals','clay_d4').toBands().rename("clay3") 
+var soilgridbd = ee.Image(bd1).addBands(bd2).addBands(bd3)
+             .select(['bd1','bd2','bd3'],['0_10','10_20','20_40'])
+var soilgridclay = ee.Image(clay1).addBands(clay2).addBands(clay3)
+             .select(['clay1','clay2','clay3'],['0_10','10_20','20_40'])
+var clay = (soilgridclay.select('0_10').add(soilgridclay.select('10_20'))
+            .add(soilgridclay.select('20_40'))).divide(3).rename("clay")
+            .set('system:time_start', ee.Date('2019-01-01').millis());
+var smColl = smColl.filterDate(start, end)
+              .filterBounds(site).select(['B0','B1']); 
+var stColl = stColl.filterDate(start, end)
+              .filterBounds(site).select(['B0']); 
+var eviColl = eviColl.filterDate(start2, end2)
+              .filterBounds(site).select(['EVI']); 
+var fparColli = fparColl.filterDate(start2, end2)
+              .filterBounds(site).select(['Fpar','FparLai_QC'],['fpar','fpar_QC']); 
+var NLDAS = NLDAS.filterDate(start, end)
+              .filterBounds(site).select(['shortwave_radiation']) 
+
+// Mask MODIS fpar with QC bands
+function maskfpar(image) {
+  var modisfparQA = image.select("fpar_QC");
+  var extractQABits = function (qaBand, bitStart, bitEnd) {
+    var numBits = bitEnd - bitStart + 1;
+    var qaBits = qaBand.rightShift(bitStart).mod(Math.pow(2, numBits));
+    return qaBits;
+    };
+  var qcMask = extractQABits(modisfparQA, 0, 0).gte(1);
+  var sensorMask = extractQABits(modisfparQA, 1, 1).gte(1);
+  var detectMask = extractQABits(modisfparQA, 2, 2).gte(1);
+  var cloudMask = extractQABits(modisfparQA, 3, 4).gte(1).and(extractQABits(modisfparQA, 3, 4).lt(3));
+  var qsMask = extractQABits(modisfparQA, 5, 7).gte(2).and(extractQABits(modisfparQA, 5, 7).lt(4));
+  var mask = (qcMask.or(sensorMask).or(detectMask).or(cloudMask).or(qsMask)).not();
+  return image.updateMask(mask); 
+  }
+var fparColli = fparColli.map(maskfpar);
+
+//Define functions
+function getVPD (img){//final unit is millibar
+    var ea = img.select('vp').divide(100.0).rename('ea');
+    var es_min = img.expression(
+    'es_min = 6.1078 * exp(17.269*T / (237.3+T ))', { 
+      'T': img.select('tmin')
+    })
+    var es_max = img.expression(
+    'es_max = 6.1078 * exp(17.269*T / (237.3+T ))', {
+      'T': img.select('tmax')
+    })
+    var img = img.addBands([ea, es_min, es_max]); 
+    var es_avg = img.expression(
+    'es_avg = 6.1078 * exp(17.269*T / (237.3+T))',{
+      'T':img.select('tavg')
+    })
+    var img = img.addBands(es_avg);
+    var vpd = img.expression(
+    'vpd = es - ea',{
+      'es':img.select('es_avg'),
+      'ea':img.select('ea')
+    }).addBands(img.metadata('system:time_start').divide(1e18).rename('time'))
+    var img = img.addBands(vpd);
+    return img.select(['time','vpd']); // unit is hpa - millibar
+}    
+function getSrad (img){
+    var mj = img.select("srad").divide(1000000/86400);
+    var img = img.select('tmax').addBands(mj); 
+    return img.select('srad');
+}
+function fparFunc (img){
+    var fpar = img.select("fpar").divide(100);
+    var img = img.select("fpar_QC").addBands(fpar);
+    return img.select(['fpar','fpar_QC']);
+}
+function getTavg (img){
+    var avg = img.expression(
+    'tavg = (tmin + tmax)/2', {
+        'tmin': img.select('tmin'),
+        'tmax': img.select('tmax')})
+    return img.select(['tmin','tmax']).addBands(avg);
+}
+function tsoilFunc (img){
+    var ts = img.expression(
+    'tsoil = T - 273.15', {
+      'T': img.select(["B0"],["TS"])
+    })
+    return ts.copyProperties(img, ['system:time_start']);
+}
+function getSM1 (img){
+    var img = img.addBands(soilgridbd);
+    var sm1 = img.expression(
+    'sm1 = (surfacesm/100)/(1 - (bd1/2650))',{
+      'surfacesm':img.select('B0'),
+      'bd1':img.select('0_10')
+    });
+    return img.addBands(sm1).select('sm1');
+   } 
+function getSM2 (img){
+    var img = img.addBands(soilgridbd)
+    var img = img.addBands(img.expression(
+      'bd2 = (b2 + b3)/2',{
+        'b2':img.select('10_20'),
+        'b3':img.select('20_40')
+    })).select('B0','B1','bd2');
+    var sm2 = img.expression(
+    'sm2 = ((rootsm+surfacesm)/400)/(1 - (bd2/2650))',{
+      'surfacesm':img.select('B0'),
+      'rootsm':img.select('B1'),
+      'bd2':img.select('bd2')
+    });
+    return img.addBands(sm2).select("sm2");
+    }
+function nldasFunc (img){
+    var swir = img.expression(
+    'SW_IN_NLDAS = (SWIN/1000000*86400/12)', { //convert to average hourly during the daylight time to match with Daymet4
+      'SWIN': img.select('shortwave_radiation')
+    })
+    return swir.copyProperties(img, ['system:time_start']);
+}
+function combInputs (img){ 
+    var date = ee.Date(img.get("system:time_start")).format('YYYY-MM-dd');
+    var doy = ee.Date(img.get('system:time_start')).getRelative('day','year').add(1.0);
+    var fpar = fparColli.filter(ee.Filter.dayOfYear(doy,doy)).mean()
+               .set('system:time_start', ee.Date('2019-01-01').millis()); //will run into error without adding metadata
+    var daymet = daymet_inputs.filter(ee.Filter.dayOfYear(doy,doy)).mean();
+    var sm1 = smColl1.filter(ee.Filter.dayOfYear(doy,doy)).mean();  
+    var sm2 = smColl2.filter(ee.Filter.dayOfYear(doy,doy)).mean(); 
+    var st = tsoil.filter(ee.Filter.dayOfYear(doy,doy)).mean();
+    var swir = NLDAS.filter(ee.Filter.dayOfYear(doy,doy)).mean().multiply(24); 
+    var Tavg = tavg.filter(ee.Filter.dayOfYear(doy,doy)).mean();
+    var Tmn = tmin.filter(ee.Filter.dayOfYear(doy,doy)).mean();
+    var ppt = prcp.filter(ee.Filter.dayOfYear(doy,doy)).mean();
+    return fpar.addBands(daymet).addBands(st).addBands(sm1).addBands(sm2).addBands(clay)
+               .addBands(swir).addBands(Tavg).addBands(Tmn).addBands(ppt).set('DOY', doy);
+}
+function combInputs_all (img){ // use evi to get all the dates
+  var date = ee.Date(img.get("system:time_start")).format('YYYY-MM-dd');
+    var doy = ee.Date(img.get('system:time_start')).getRelative('day','year').add(1.0);
+    var evi = eviColl.filter(ee.Filter.dayOfYear(doy,doy)).mean()
+               .set('system:time_start', ee.Date('2019-01-01').millis()); //will run into error without adding metadata
+    var daymet = daymet_inputs.filter(ee.Filter.dayOfYear(doy,doy)).mean();
+    var sm1 = smColl1.filter(ee.Filter.dayOfYear(doy,doy)).mean();  
+    var sm2 = smColl2.filter(ee.Filter.dayOfYear(doy,doy)).mean(); 
+    var st = tsoil.filter(ee.Filter.dayOfYear(doy,doy)).mean();
+    var swir = NLDAS.filter(ee.Filter.dayOfYear(doy,doy)).mean().multiply(24); 
+    var Tavg = tavg.filter(ee.Filter.dayOfYear(doy,doy)).mean();
+    var Tmn = tmin.filter(ee.Filter.dayOfYear(doy,doy)).mean();
+    var ppt = prcp.filter(ee.Filter.dayOfYear(doy,doy)).mean();
+    return evi.addBands(daymet).addBands(st).addBands(sm1).addBands(sm2).addBands(clay)
+               .addBands(swir).addBands(Tavg).addBands(Tmn).addBands(ppt).set('DOY', doy);
+}
+
+//Process datasets to obtain variables    
+var temp = daymet.map(getTavg);
+var tmin = temp.select('tmin');
+var tmax = temp.select('tmax');
+var tavg = temp.select('tavg');
+var srad = daymet.map(getSrad);
+var vpdColl = daymet.select('vp').combine(temp);
+var VPD = vpdColl.map(getVPD);
+var prcp = daymet.select('prcp');
+var daymet_inputs = srad.combine(VPD);
+var tsoil = stColl.map(tsoilFunc);
+var smColl1 = smColl.map(getSM1);
+var smColl2 = smColl.map(getSM2);
+var fparColli = fparColli.map(fparFunc);
+var NLDAS = NLDAS.map(nldasFunc);
+var spin = fparColli.filterDate('2003-01-01','2004-01-01').map(combInputs); //reduce date range to allow debugging
+
+//Check output image numbers
+//var inputList = spin.toList(spin.size()); 
+//print(inputList)
+
+//Filter out images that are missing required bands
+var band_num = function (image){
+  return image.set("band_number", image.bandNames().size())
+}
+var spin = spin.map(band_num)
+var spin = spin.filterMetadata('band_number', 'equals', 13)
+
+//Export covariates daily; or else fpar data not available will reduce the temporal resolution
+var spin_all = eviColl.filterDate('2003-01-01','2004-01-01').map(combInputs_all);
+var spin_all = spin_all.map(band_num);
+var spin_all = spin_all.filterMetadata('band_number', 'equals', 12);
+
+
+//Calculate summary stats
+//Mean
+var reduceRegion = function(image) {
+  var meanDictionary = image.reduceRegion({
+    reducer: ee.Reducer.mean(),
+    geometry: site.geometry(),
+    scale: 30,
+    maxPixels: 1e9
+});
+  var props = {
+    'fPAR': meanDictionary.get('fpar'),
+    'SWC1': meanDictionary.get('sm1'),
+    'SWC2': meanDictionary.get('sm2'),
+    'SW_IN': meanDictionary.get('srad'),
+    'TS': meanDictionary.get('tsoil'),
+    'VPD': meanDictionary.get('vpd'),
+    'SW_IN_NLDAS': meanDictionary.get('SW_IN_NLDAS'),
+    'TA': meanDictionary.get('tavg'),
+    'TA_min': meanDictionary.get('tmin'),
+    'ppt': meanDictionary.get('prcp'),
+    'Clay': meanDictionary.get('clay'),
+    'DOY': image.get('DOY'),
+    'date': image.date().format('YYYY-MM-dd')};
+  return ee.Feature(site.geometry(),props);
+}
+var spin_avg = spin.map(reduceRegion)
+//Standard deviation
+var reduceRegion2 = function(image) {
+  var meanDictionary = image.reduceRegion({
+    reducer: ee.Reducer.stdDev(),
+    geometry: site.geometry(),
+    scale: 30,
+    maxPixels: 1e9
+});
+  var props = {
+    'fPAR': meanDictionary.get('fpar'),
+    'SWC1': meanDictionary.get('sm1'),
+    'SWC2': meanDictionary.get('sm2'),
+    'SW_IN': meanDictionary.get('srad'),
+    'TS': meanDictionary.get('tsoil'),
+    'VPD': meanDictionary.get('vpd'),
+    'SW_IN_NLDAS': meanDictionary.get('SW_IN_NLDAS'),
+    'TA': meanDictionary.get('tavg'),
+    'TA_min': meanDictionary.get('tmin'),
+    'ppt': meanDictionary.get('prcp'),
+    'Clay': meanDictionary.get('clay'),
+    'DOY': image.get('DOY'),
+    'date': image.date().format('YYYY-MM-dd')};
+  return ee.Feature(site.geometry(),props);
+}
+var spin_std = spin.map(reduceRegion2)
+
+//for all covariates for all dates
+var reduceRegion = function(image) {
+  var meanDictionary = image.reduceRegion({
+    reducer: ee.Reducer.mean(),
+    geometry: site.geometry(),
+    scale: 30,
+    maxPixels: 1e9
+});
+  var props = {
+    'evi': meanDictionary.get('EVI'),
+    'SWC1': meanDictionary.get('sm1'),
+    'SWC2': meanDictionary.get('sm2'),
+    'SW_IN': meanDictionary.get('srad'),
+    'TS': meanDictionary.get('tsoil'),
+    'VPD': meanDictionary.get('vpd'),
+    'SW_IN_NLDAS': meanDictionary.get('SW_IN_NLDAS'),
+    'TA': meanDictionary.get('tavg'),
+    'TA_min': meanDictionary.get('tmin'),
+    'ppt': meanDictionary.get('prcp'),
+    'Clay': meanDictionary.get('clay'),
+    'date': image.date().format('YYYY-MM-dd')};
+  return ee.Feature(site.geometry(),props);
+}
+var spin_avg_all = spin_all.map(reduceRegion)
+
+var reduceRegion2 = function(image) {
+  var meanDictionary = image.reduceRegion({
+    reducer: ee.Reducer.stdDev(),
+    geometry: site.geometry(),
+    scale: 30,
+    maxPixels: 1e9
+});
+  var props = {
+    'evi': meanDictionary.get('EVI'),
+    'SWC1': meanDictionary.get('sm1'),
+    'SWC2': meanDictionary.get('sm2'),
+    'SW_IN': meanDictionary.get('srad'),
+    'TS': meanDictionary.get('tsoil'),
+    'VPD': meanDictionary.get('vpd'),
+    'SW_IN_NLDAS': meanDictionary.get('SW_IN_NLDAS'),
+    'TA': meanDictionary.get('tavg'),
+    'TA_min': meanDictionary.get('tmin'),
+    'ppt': meanDictionary.get('prcp'),
+    'Clay': meanDictionary.get('clay'),
+    'date': image.date().format('YYYY-MM-dd')};
+  return ee.Feature(site.geometry(),props);
+}
+var spin_std_all = spin_all.map(reduceRegion2)
+
+// Export the result to Cloud Storage
+Export.table.toCloudStorage({
+  collection: spin_avg,
+  bucket: 'rangelands',
+  fileNamePrefix: 'path-to-flux-tower-dataset/SPIN_AVG/' + site_name,
+  fileFormat: 'CSV'
+});
+Export.table.toCloudStorage({
+  collection: spin_std,
+  bucket: 'rangelands',
+  fileNamePrefix: 'path-to-flux-tower-dataset/SPIN_STD/' + site_name,
+  fileFormat: 'CSV'
+});
+Export.table.toCloudStorage({
+  collection: spin_avg_all,
+  bucket: 'rangelands',
+  fileNamePrefix: 'path-to-flux-tower-dataset/SPIN_AVG_ALL/' + site_name,
+  fileFormat: 'CSV'
+});
+Export.table.toCloudStorage({
+  collection: spin_std_all,
+  bucket: 'rangelands',
+  fileNamePrefix: 'path-to-flux-tower-dataset/SPIN_STD_ALL/' + site_name,
+  fileFormat: 'CSV'
+});

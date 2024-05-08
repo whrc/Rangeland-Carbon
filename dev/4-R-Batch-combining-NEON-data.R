@@ -1,0 +1,50 @@
+library(ncdf4)
+library(raster)
+library(lubridate)
+Site = "sitename"
+ncpath <- paste0("C:/Users/username/path-to-the-NEON-downloaded-data-folder/",Site,"/")
+nclist <- list.files(path = ncpath, recursive = TRUE, pattern = '^.*_atm_.*\\.nc$', full.names = TRUE)
+met.i <- data.frame()
+for (i in 1:length(nclist)){
+  ncname <- nclist[i] 
+  data <- nc_open(ncname)
+  lat <- ncvar_get(data, "lat")
+  lon <- ncvar_get(data, "lon")
+  time <- ncvar_get(data, "time")
+  ppt <- ncvar_get(data, "PRECTmms")
+  SW_IN <- ncvar_get(data, "FSDS")
+  RH <- ncvar_get(data, "RH")
+  WS <- ncvar_get(data, "WIND")
+  PA <- ncvar_get(data, "PSRF")
+  TA <- ncvar_get(data, "TBOT")
+  met <- data.frame(lon,lat,time,ppt,SW_IN,RH,WS,PA,TA)
+  met <- tibble::rowid_to_column(met, "Day")
+  met$Day <- ceiling(met$Day/48)
+  met$Year <- as.numeric(substr(ncname,(nchar(ncname)-9),(nchar(ncname)-6)))
+  met$Month <- as.numeric(substr(ncname,(nchar(ncname)-4),(nchar(ncname)-3)))
+  met$Date <- with(met,ymd(paste(Year,Month,Day,sep=" ")))
+  met.i <- rbind(met.i,met) 
+}
+data0 <- met.i[,c("Date","ppt","SW_IN","RH","WS","PA","TA")]
+nclist <- list.files(path = ncpath, recursive = TRUE, pattern = '^.*_eval_.*\\.nc$', full.names = TRUE)
+flux.i <- data.frame()
+for (i in 1:length(nclist)){
+  ncname <- nclist[i] 
+  data <- nc_open(ncname)
+  names(data$var)
+  lat <- ncvar_get(data, "lat")
+  lon <- ncvar_get(data, "lon")
+  time <- ncvar_get(data, "time")
+  NEE <- ncvar_get(data, "NEE")
+  GPP <- ncvar_get(data, "GPP")
+  flux <- data.frame(lon,lat,time,NEE,GPP)
+  flux <- tibble::rowid_to_column(flux, "Day")
+  flux$Day <- ceiling(flux$Day/48)
+  flux$Year <- as.numeric(substr(ncname,(nchar(ncname)-9),(nchar(ncname)-6)))
+  flux$Month <- as.numeric(substr(ncname,(nchar(ncname)-4),(nchar(ncname)-3)))
+  flux$Date <- with(flux,ymd(paste(Year,Month,Day,sep=" ")))
+  flux.i <- rbind(flux.i,flux) 
+}
+data1 <- flux.i[,c("Date","NEE","GPP")]
+write.csv(data0,paste0("C:/Users/username/path-to-NEON-data-summary/",Site,"/met_summary.csv"))
+write.csv(data1,paste0("C:/Users/username/path-to-NEON-data-summary/",Site,"/flux_summary.csv"))
