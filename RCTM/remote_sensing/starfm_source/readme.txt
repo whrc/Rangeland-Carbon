@@ -11,6 +11,9 @@ Landsat-scale on other MODIS observation dates. This program implements the STAR
 approach using C. It has been tested in Linux system using gcc compiler 
 (require v4.4 or newer in order to support multiprocessing OpenMP 3.0). 
 
+changes for RCTM:
+- fixed minor bug by uncommenting line 396 in StarFM_util.c.
+
 v1.1.2: 
 - original version (first release)
 - accepts one or two image pairs

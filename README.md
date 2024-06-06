@@ -1,6 +1,8 @@
 # Rangeland-Carbon
 Repository for the Rangeland Carbon Tracking Model (RCTM). The RCTM uses remote sensing fusion coupled with a lightweight process-based model to quantify carbon stocks in vegetation and soil, and carbon fluxes (GPP, RECO, NEE). The model is currently configured to run at a five-day interval and 30-m spatial resolution.
 
+Code for running the full process through pipelines is contained in the ```RCTM/``` directory. Scripts used for model developement are located in ```dev/```
+
 The general process for running a new region goes as follows:
 1. Download Landsat and MODIS imagery from Google Earth Engine
 3. Download RCTM covariates from Google Earth Engine
@@ -30,6 +32,19 @@ Make sure to set the PYTHONPATH environment variable to the Rangeland-Carbon dir
 ```
 export PYTHONPATH='{...}/Rangeland-Carbon'
 ```
+
+### STARFM setup
+The Spatial and Temporal Adaptive Reflectance Fusion Model (STARFM; Gao et al., 2006; Gao et al., 2015) is used to fuse 30-m spatial resolution Landsat imagery with daily 500-m MODIS imagery. We use STARFM to produce a consistent time series of 30-m surface reflectance imagery at a 5-day time step. The setup is straightforward.
+
+To set up the source, navigate to Rangeland-Carbon/RCTM/remote_sensing/starfm_source/ and run ```$ make```.
+
+STARFM source code was obtained from (https://www.ars.usda.gov/research/software/download/?softwareid=432&modecode=80-42-05-10). STARFM source code in this repository is nearly identical to code from the link, except for a minor bug fix in StarFM_util.c
+
+References
+ 
+Gao, F., Masek, J., Schwaller M. and Hall, F. On the blending of the Landsat and MODIS surface reflectance: predict daily Landsat surface reflectance. IEEE Transactions on Geoscience and Remote Sensing. 44 (8): 2207-2218. 2006.
+
+Gao, F., Hilker, T., Zhu, X., Anderson, M. A., Masek, J., Wang, P. and Yang, Y. Fusing Landsat and MODIS data for vegetation monitoring, IEEE Geoscience and Remote Sensing Magazine. 3(3): 47-60. doi: 10.1109/MGRS.2015.2434351. 2015.
 
 ### Config file
 
