@@ -108,3 +108,6 @@ from RCTM.pipelines.RCTM_model_pipeline import RCTMPipeline
 pipe=RCTMPipeline(config_filename='/home/amullen/Rangeland-Carbon/examples/config/test_config.yaml')
 pipe.run_RCTM()
 ```
+## Citing this work
+
+Xia, Y., Sanderman, J., Watts, J.D. et al. (in review). Coupling Remote Sensing with a Process Model for the Simulation of Rangeland Carbon Dynamics. 
