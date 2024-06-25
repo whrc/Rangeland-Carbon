@@ -1,0 +1,157 @@
+// Import datasets
+var DAYMET = ee.ImageCollection("NASA/ORNL/DAYMET_V4"),
+    SRTM = ee.Image("USGS/SRTMGL1_003"),
+    flowaccum = ee.Image("WWF/HydroSHEDS/15ACC"),
+    dem = ee.Image("WWF/HydroSHEDS/03VFDEM"),
+    RAP = ee.ImageCollection("projects/rangeland-analysis-platform/vegetation-cover-v2"),
+    MODISTree = ee.ImageCollection("MODIS/006/MOD44B"),
+    MODISGPP = ee.ImageCollection("MODIS/006/MOD17A2H"),
+    MODISEVI = ee.ImageCollection("MODIS/006/MOD13Q1"),
+    LandsatEVI = ee.ImageCollection("LANDSAT/LC08/C01/T1_8DAY_EVI"),
+    NLCD = ee.Image("users/username/nlcd_2019"),
+    bd1 = ee.Image("users/yxia/Datasets/SoilGrid100/bd1"),
+    bd2 = ee.Image("users/yxia/Datasets/SoilGrid100/bd2"),
+    bd3 = ee.Image("users/yxia/Datasets/SoilGrid100/bd3"),
+    bd4 = ee.Image("users/yxia/Datasets/SoilGrid100/bd4"),
+    bd5 = ee.Image("users/yxia/Datasets/SoilGrid100/bd5"),
+    bd6 = ee.Image("users/yxia/Datasets/SoilGrid100/bd6"),
+    bd7 = ee.Image("users/yxia/Datasets/SoilGrid100/bd7"),
+    clay1 = ee.Image("users/yxia/Datasets/SoilGrid100/clay1"),
+    clay2 = ee.Image("users/yxia/Datasets/SoilGrid100/clay2"),
+    clay3 = ee.Image("users/yxia/Datasets/SoilGrid100/clay3"),
+    clay4 = ee.Image("users/yxia/Datasets/SoilGrid100/clay4"),
+    clay5 = ee.Image("users/yxia/Datasets/SoilGrid100/clay5"),
+    clay6 = ee.Image("users/yxia/Datasets/SoilGrid100/clay6"),
+    clay7 = ee.Image("users/yxia/Datasets/SoilGrid100/clay7"),
+    sand1 = ee.Image("users/yxia/Datasets/SoilGrid100/sand1"),
+    sand2 = ee.Image("users/yxia/Datasets/SoilGrid100/sand2"),
+    sand3 = ee.Image("users/yxia/Datasets/SoilGrid100/sand3"),
+    sand4 = ee.Image("users/yxia/Datasets/SoilGrid100/sand4"),
+    sand5 = ee.Image("users/yxia/Datasets/SoilGrid100/sand5"),
+    sand6 = ee.Image("users/yxia/Datasets/SoilGrid100/sand6"),
+    sand7 = ee.Image("users/yxia/Datasets/SoilGrid100/sand7"),
+    soc1 = ee.Image("users/yxia/Datasets/SoilGrid100/soc1"),
+    soc2 = ee.Image("users/yxia/Datasets/SoilGrid100/soc2"),
+    soc3 = ee.Image("users/yxia/Datasets/SoilGrid100/soc3"),
+    soc4 = ee.Image("users/yxia/Datasets/SoilGrid100/soc4"),
+    soc5 = ee.Image("users/yxia/Datasets/SoilGrid100/soc5"),
+    soc6 = ee.Image("users/yxia/Datasets/SoilGrid100/soc6"),
+    soc7 = ee.Image("users/yxia/Datasets/SoilGrid100/soc7"),
+    site_name1 = ee.FeatureCollection("projects/project-folder-name/assets/Shapefiles/site_name1"); // Specify site name
+    site_name2 = ee.FeatureCollection("projects/project-folder-name/assets/Shapefiles/site_name2"); // Specify site name
+
+// Define ROI
+var roi = site_name1; //site_name2
+
+// Get weather data
+var ppt = DAYMET.filter(ee.Filter.date('2019-01-01', '2019-12-31')).select("prcp").sum();
+var airT = (DAYMET.filter(ee.Filter.date('2019-01-01', '2019-12-31')).select("tmin").sum()
+  .add(DAYMET.filter(ee.Filter.date('2019-01-01', '2019-12-31')).select("tmax").sum())).divide(730)
+  .rename('airT');
+var vpd = DAYMET.filter(ee.Filter.date('2019-01-01', '2019-12-31')).select("vp").sum().divide(365);
+// Get long term weather data
+var ppt20 = DAYMET.filter(ee.Filter.date('2001-01-01', '2020-12-31')).select("prcp").sum().rename('ppt20');
+var tmin20 = DAYMET.filter(ee.Filter.date('2001-01-01', '2020-12-31')).select("tmin").sum().divide(365).rename('tmin20');
+var tmax20 = DAYMET.filter(ee.Filter.date('2001-01-01', '2020-12-31')).select("tmax").sum().divide(365).rename('tmax20');
+var vpd20 = DAYMET.filter(ee.Filter.date('2001-01-01', '2020-12-31')).select("vp").sum().divide(365).rename('VPD20');
+
+// Terrain calculations from SRTM
+var elevation = SRTM.select('elevation');
+var slope = ee.Terrain.slope(elevation);
+var aspect = ee.Terrain.aspect(elevation);
+var twi = (flowaccum.multiply(ee.Image(flowaccum.projection().nominalScale())
+            .divide(slope.multiply(ee.Image(Math.PI)).divide(ee.Image(180)).tan()))).log().rename('twi');
+var twicoarse = twi.clip(site_name).reduceNeighborhood(ee.Reducer.mean(),ee.Kernel.square(5),"kernel",false,null).rename('TWI')
+var TWI = twi.unmask(twicoarse) // gap-fill spatial data
+            
+// Get RAP land cover percentages
+var RAP2019 = RAP.filter(ee.Filter.equals('year', 2019));
+// Get RAP land cover percentages from long-term records
+/*
+var RAP_coll = RAP.filter(ee.Filter.date('2001-01-01', '2020-12-31')).select(["AFGC","PFGC","TREE","SHR","LTR","BG"]);
+var RAP_AFGC_a = RAP_coll.select("AFGC").mean();
+var RAP_PFGC_a = RAP_coll.select("PFGC").mean();
+var RAP_TREE_a = RAP_coll.select("TREE").mean();
+var RAP_SHR_a = RAP_coll.select("SHR").mean();
+var RAP_LTR_a = RAP_coll.select("LTR").mean();
+var RAP_BG_a = RAP_coll.select("BG").mean();
+var RAP_cov = ee.Image.cat(RAP_AFGC_a,RAP_PFGC_a,RAP_TREE_a,RAP_SHR_a,RAP_LTR_a,RAP_BG_a)
+.set('system:time_start', ee.Date('2019-01-01').millis());
+*/
+//get RAP layers for 2019
+var RAP_AFGC = RAP2019.select("AFGC").first().rename("AFGC");
+var RAP_PFGC = RAP2019.select("PFGC").first().rename("PFGC");
+var RAP_TREE = RAP2019.select("TREE").first().rename("TREE");
+var RAP_SHR = RAP2019.select("SHR").first().rename("SHR");
+var RAP_LTR = RAP2019.select("LTR").first().rename("LTR");
+var RAP_BG = RAP2019.select("BG").first().rename("BG");
+
+// Get tree cover
+var Tree = MODISTree.filter(ee.Filter.date('2019-01-01', '2019-12-31')).select("Percent_Tree_Cover").toBands().rename("tree");
+// Get tree cover from long-term records
+var Tree20 = MODISTree.filter(ee.Filter.date('2001-01-01', '2020-12-31')).select("Percent_Tree_Cover").mean().rename("Tree20");
+
+// Get GPP
+var GPP = MODISGPP.filter(ee.Filter.date('2019-01-01', '2019-12-31')).select('Gpp').sum().divide(10);
+//long-term GPP
+var GPP20 = MODISGPP.filter(ee.Filter.date('2001-01-01', '2020-12-31')).select('Gpp').sum().divide(10).divide(20).rename("GPP20");
+
+// Get EVI
+var EVI = LandsatEVI
+    .filter(ee.Filter.calendarRange(2013, 2019, 'year'))
+    .filter(ee.Filter.calendarRange(4, 10, 'month')).select('EVI').mean();
+// Get EVI from long term records
+var EVI8 = LandsatEVI
+    .filter(ee.Filter.calendarRange(2014, 2021, 'year'))
+    .filter(ee.Filter.calendarRange(4, 10, 'month')).select('EVI').mean().rename("EVI8");
+
+// Change unit for reported BD
+var bd1 = bd1.divide(1000)
+var bd2 = bd2.divide(1000)
+var bd3 = bd3.divide(1000)
+var bd4 = bd4.divide(1000)
+var bd5 = bd5.divide(1000)
+   
+// Get soil bands
+var soil = ee.Image.cat(bd1,bd2,bd3,bd4,bd5,bd6,bd7,
+clay1,clay2,clay3,clay4,clay5,clay6,clay7,
+sand1,sand2,sand3,sand4,sand5,sand6,sand7,
+soc1,soc2,soc3,soc4,soc5,soc6,soc7)
+.rename(['bd1','bd2','bd3','bd4','bd5',
+'clay1','clay2','clay3','clay4','clay5','
+'sand1','sand2','sand3','sand4','sand5',
+'soc1','soc2','soc3','soc4','soc5'])
+.set('system:time_start', ee.Date('2019-01-01').millis());// set the pseudo date to avoid error in export
+
+// Get v1 covariates
+var covariates = ee.Image.cat(
+  elevation,slope,aspect,TWI,
+  ppt,airT,vpd,soil,
+  NLCD,Tree,GPP,EVI)
+.set('system:time_start', ee.Date('2019-01-01').millis());
+var covCol = ee.ImageCollection([covariates]);
+
+// Get v2 covariates (mostly long-term records) that are not included in previous versions
+var covariates_V2 = ee.Image.cat(
+  ppt20,tmin20,tmax20,vpd20,Tree20,GPP20,EVI8,RAP_AFGC,RAP_PFGC,RAP_TREE,RAP_SHR,RAP_LTR,RAP_BG
+  ).set('system:time_start', ee.Date('2019-01-01').millis());//RAP_cov
+var covCol_V2 = ee.ImageCollection([covariates_V2]);
+
+// Add a depth layer
+var getdepth = function (img){
+    var constant = ee.Image.constant(15).rename("Med_depth"); 
+    return img.addBands(constant);
+};
+var covCol_dpadded = covCol.map(getdepth);
+var covCol_dpadded_V2 = covCol_V2.map(getdepth);
+var ROI_Cov_All = covCol_dpadded.mosaic().clip(roi).toFloat();
+var ROI_Cov_All_V2 = covCol_dpadded_V2.mosaic().clip(roi).toFloat();
+
+//Export final tiff with all covariates
+Export.image.toDrive({
+      image: ROI_Cov_All, //ROI_Cov_All_V2
+      scale: 30,
+      crs: 'EPSG:4326',
+      region: roi,
+      maxPixels: 1000000000000,
+    });
