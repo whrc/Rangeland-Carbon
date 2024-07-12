@@ -23,11 +23,6 @@ from matplotlib import pyplot as plt
 import seaborn as sns
 import os
 import itertools
-
-#path_to_temp = '/home/amullen/temp/'
-#bucket_name = 'rangelands'
-#storage_client = storage.Client.from_service_account_json('/home/amullen/Rangeland-Carbon/res/gee_key.json')
-#bucket = storage_client.get_bucket(bucket_name)
   
 def xr_dataset_to_data_array(dataset):
 
@@ -234,9 +229,12 @@ def upload_features_to_ee(geojson_path, asset_dir, name_col = 'Name', drop_cols 
     task_ids = []
     
     for index, row in gdf.iterrows():
-        name = row[name_col]
+        if name_col not in gdf.columns:
+           name = f'geometry{index}'
+        else:
+           name = row[name_col]
         row = gpd.GeoDataFrame(row.to_dict(), index=[0])
-        row = row.drop(columns = drop_cols)
+        #row = row.drop(columns = drop_cols)
         row.crs = crs
 
         ee_geometry = geemap.geopandas_to_ee(row)

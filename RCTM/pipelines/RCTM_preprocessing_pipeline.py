@@ -23,9 +23,8 @@ class RCTMPrePipeline(object):
             
     # Configuration file intialization
     if config_filename is None:
-        
-      config_filename = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), default_config)
-      logging.info(f'Loading default config: {config_filename}')
+      logging.info('No config file supplied')
+      return
       
     self.conf = self._read_config(config_filename, RCTMConfig)
     self.RCTM_params = self._read_config(rctm_param_filename, config_class = RCTM_params)
@@ -47,12 +46,15 @@ class RCTMPrePipeline(object):
     Read configuration filename and initiate objects
     """
     # Configuration file initialization
-    schema = omegaconf.OmegaConf.structured(config_class)
     conf = omegaconf.OmegaConf.load(filename)
+    conf_dict = omegaconf.OmegaConf.to_container(conf, resolve=True)
+
     try:
-      conf = omegaconf.OmegaConf.merge(schema, conf)
+      conf = RCTMConfig(**conf_dict)
+
     except BaseException as err:
       sys.exit(f"ERROR: {err}")
+
     return conf
         
   # -------------------------------------------------------------------------
