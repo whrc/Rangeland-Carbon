@@ -307,5 +307,3 @@ if __name__ == "__main__":
   runlist=get_runlist(args.in_modis_dir, args.in_landsat_dir, args.sfm_out_dir, args.bucket_name)
   run_starfm(runlist, args.bucket_name)
 
-#python starfm.py --in_modis_dir='Ameriflux_sites/Aud_starfm/modis_test_smooth/' --in_landsat_dir='Ameriflux_sites/Aud_starfm/landsat_test/' --sfm_out_dir='Ameriflux_sites/Aud_starfm/starfm_test/' --bucket_name='rangelands'
-

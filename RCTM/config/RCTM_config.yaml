@@ -1,7 +1,0 @@
-## params defining geometry to process ##
-geometry_polygon: '/home/amullen/Rangeland-Carbon/examples/geometries/test_poly.shp' #'multi' for multiple polygons in single file, or 'single' for single polygon in file
-path_to_geometry_local: '' #path to local geometry
-path_to_geometry_EE_asset: '' #path to upload local geometry as EE asset, or path to existing geometry asset
-
-## params defining file i/o locations locally and on the cloud ##
-

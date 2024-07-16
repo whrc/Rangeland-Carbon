@@ -1,0 +1,33 @@
+# This sample config file contains all required controls for running the RCTM process. 
+# There is a more complex verion containing all possible settings 'test_config.yaml'.
+# The main difference between the two is that this version allows for quickly configuring and running the model.
+# Any variable present in the 'test_config.yaml' and not included here can be added to this configuration.
+
+## params defining file i/o locations locally and on the cloud ##
+workflows_path: '/home/amullen/Rangeland-Carbon/examples/workflows/test_single_poly/' #this directory will store all status files that track status of process
+path_to_temp_dir: '/home/amullen/temp/' 
+
+######################################## Google Cloud ############################################
+bucket_name: 'rangelands'
+gcloud_workflow_base_dir: 'test_data'
+
+####################################### Google Earth Engine #####################################
+service_account: 'rctm-07dea6fa718fdd0921f124263@rangelands-explo-1571664594580.iam.gserviceaccount.com'
+gee_key_json: '/home/amullen/res/gee_key.json'
+gcloud_project: 'rangelands-explo-1571664594580'
+
+## params defining geometry to process ##
+path_to_geometry_local: '/home/amullen/Rangeland-Carbon/examples/geometries/test_poly.geojson' #path to local geometry .geojson file
+ee_geometry_save_dir: 'projects/rangelands-explo-1571664594580/assets/RCTM_test_assets/' #path to folder in which to save ee geometry assets
+
+## params defining starfm landsat downloads ##
+sfm_imagery_download_date_range: ['2002-01-01', '2006-12-31']
+
+################################### modeling ##########################################
+#model config
+RCTM_spinup_date_range: ['2002-05-01', '2005-12-31']
+RCTM_transient_date_range: ['2002-01-01', '2006-12-31']
+
+spin_years: 100
+run_transient: True
+init_C_stocks_with_image: False

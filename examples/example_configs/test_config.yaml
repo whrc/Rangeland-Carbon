@@ -1,9 +1,16 @@
+# This sample config file contains all adjustable controls for running the RCTM process. 
+# There is a simplified verion containing the minimum required variables 'test_config_minimal.yaml'.
+# The main difference between the two is that this version gives more control over the data export/access directories and filenames.
+# Adjusting data access and storage paths in this manner allows for small components of the workflow to be adjusted for an experiment
+# (e.g. image fusion technique), while keeping other processess consistent.
+
 ## params defining file i/o locations locally and on the cloud ##
 workflows_path: '/home/amullen/Rangeland-Carbon/examples/workflows/test_single_poly/'
 path_to_temp_dir: '/home/amullen/temp/'
 
 ######################################## Google Cloud ############################################
 bucket_name: 'rangelands'
+gcloud_workflow_base_dir: 'test_data'
 
 ####################################### Google Earth Engine #####################################
 service_account: 'rctm-07dea6fa718fdd0921f124263@rangelands-explo-1571664594580.iam.gserviceaccount.com'
@@ -57,6 +64,8 @@ fused_landcover_outname: 'test_data/landcover/fused_landcover.tif' # gcloud path
 
 ################################### modeling ##########################################
 #model config
+RCTM_spinup_date_range: ['2002-05-01', '2005-12-31']
+RCTM_transient_date_range: ['2002-01-01', '2022-12-31']
 point_mode: False
 spin_years: 100
 run_transient: True

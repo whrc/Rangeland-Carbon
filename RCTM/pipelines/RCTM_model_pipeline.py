@@ -20,20 +20,19 @@ class RCTMPipeline(object):
             
     # Configuration file intialization
     if config_filename is None:
-        
-      config_filename = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), default_config)
-      logging.info(f'Loading default config: {config_filename}')
+      logging.info('No config file supplied')
+      return
       
     self.conf = self._read_config(config_filename, RCTMConfig)
-    self.RCTM_params = self._read_config(self.conf.path_to_RCTM_params, config_class = RCTM_params)
-    self.C_stock_init_yaml = self._read_config(self.conf.C_stock_inits_yaml, config_class = C_stock_inits)
+    self.RCTM_params = self._read_config(self.conf.path_to_RCTM_params, config_class = RCTM_params).__dict__
+    self.C_stock_init_yaml = self._read_config(self.conf.C_stock_inits_yaml, config_class = C_stock_inits).__dict__
       
     # Authenticate gcloud session
-    self.storage_client = storage.Client.from_service_account_json(self.conf['gee_key_json'])
+    self.storage_client = storage.Client.from_service_account_json(self.conf.gee_key_json)
     self.bucket = self.storage_client.get_bucket(self.conf.bucket_name)
       
     # create new status file if doesn't already exists
-    self.RCTM_status_path = os.path.join(self.conf['workflows_path'], 'RCTM_status.csv')
+    self.RCTM_status_path = os.path.join(self.conf.workflows_path, 'RCTM_status.csv')
     
     if not os.path.isfile(self.RCTM_status_path):
       RCTM_status = pd.DataFrame(columns = self.RCTM_STATUS_COLS)
@@ -45,12 +44,15 @@ class RCTMPipeline(object):
     Read configuration filename and initiate objects
     """
     # Configuration file initialization
-    schema = omegaconf.OmegaConf.structured(config_class)
     conf = omegaconf.OmegaConf.load(filename)
+    conf_dict = omegaconf.OmegaConf.to_container(conf, resolve=True)
+
     try:
-      conf = omegaconf.OmegaConf.merge(schema, conf)
+      conf = config_class(**conf_dict)
+
     except BaseException as err:
       sys.exit(f"ERROR: {err}")
+
     return conf
 
   def run_RCTM(self):
@@ -75,7 +77,4 @@ class RCTMPipeline(object):
          transient_flux_hist = self.conf.transient_flux_hist,
          bucket = self.bucket,
          path_to_temp = self.conf.path_to_temp_dir)
-    
-pipe=RCTMPipeline(config_filename='/home/amullen/Rangeland-Carbon/examples/config/test_config.yaml')
-pipe.run_RCTM()
 

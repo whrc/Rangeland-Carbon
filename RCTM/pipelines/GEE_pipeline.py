@@ -8,7 +8,7 @@ from google.cloud import storage
 from RCTM.remote_sensing.GEE_covariates import get_covariates, export_covariates
 from RCTM.remote_sensing.GEE_landcover import export_landcover
 from RCTM.remote_sensing.GEE_starfm import get_landsat, export_landsat_collection, get_MODIS, export_modis_collection
-from RCTM.config.RCTM_config import RCTMConfig as Config
+from RCTM.config.RCTM_config import RCTMConfig
 from RCTM.utils.utils import authorize, asset_exists, upload_features_to_ee, append_col_overwrite, get_task_status, cancel_running_tasks
 
 
@@ -23,29 +23,29 @@ class GEEPipeline(object):
   def __init__(
                 self,
                 config_filename: str = None,
-                default_config: str = 'templates/watermask_default.yaml'
             ):
            
     # Configuration file intialization
     if config_filename is None:
-      
-      config_filename = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), default_config)
-      logging.info(f'Loading default config: {config_filename}')
+      logging.info('No config file supplied')
+      return
     
-    self.conf = self._read_config(config_filename, Config)
+    print('reading config')
+    self.conf = self._read_config(config_filename, RCTMConfig)
+    print(self.conf)
     
     # Authorize EE
-    authorize(gcloud_project = self.conf['gcloud_project'], gee_key_json = self.conf['gee_key_json'], service_account = self.conf['service_account'])
+    authorize(gcloud_project = self.conf.gcloud_project, gee_key_json = self.conf.gee_key_json, service_account = self.conf.service_account)
     
     # Authenticate gcloud session
-    self.storage_client = storage.Client.from_service_account_json(self.conf['gee_key_json'])
+    self.storage_client = storage.Client.from_service_account_json(self.conf.gee_key_json)
     
     # create new status file if doesn't already exists
-    self.workflow_status_path = os.path.join(self.conf['workflows_path'], 'workflow_process_status.csv')
-    self.landsat_im_status_path = os.path.join(self.conf['workflows_path'], 'landsat_downloads.csv')
-    self.modis_im_status_path = os.path.join(self.conf['workflows_path'], 'modis_downloads.csv')
-    self.covariate_status_path = os.path.join(self.conf['workflows_path'], 'covariate_downloads.csv')
-    self.landcover_status_path = os.path.join(self.conf['workflows_path'], 'landcover_downloads.csv')
+    self.workflow_status_path = os.path.join(self.conf.workflows_path, 'workflow_process_status.csv')
+    self.landsat_im_status_path = os.path.join(self.conf.workflows_path, 'landsat_downloads.csv')
+    self.modis_im_status_path = os.path.join(self.conf.workflows_path, 'modis_downloads.csv')
+    self.covariate_status_path = os.path.join(self.conf.workflows_path, 'covariate_downloads.csv')
+    self.landcover_status_path = os.path.join(self.conf.workflows_path, 'landcover_downloads.csv')
     
     if not os.path.isfile(self.workflow_status_path):
       workflow_status = pd.DataFrame(columns = self.WORKFLOW_STATUS_COLS)
@@ -73,17 +73,20 @@ class GEEPipeline(object):
       landcover_status = None
 
   
-  def _read_config(self, filename: str, config_class=Config):
+  def _read_config(self, filename: str, config_class=RCTMConfig):
         """
         Read configuration filename and initiate objects
         """
         # Configuration file initialization
-        schema = omegaconf.OmegaConf.structured(config_class)
         conf = omegaconf.OmegaConf.load(filename)
+        conf_dict = omegaconf.OmegaConf.to_container(conf, resolve=True)
+
         try:
-            conf = omegaconf.OmegaConf.merge(schema, conf)
+            conf = RCTMConfig(**conf_dict)
+
         except BaseException as err:
             sys.exit(f"ERROR: {err}")
+
         return conf
         
   def clean_status_files(self):

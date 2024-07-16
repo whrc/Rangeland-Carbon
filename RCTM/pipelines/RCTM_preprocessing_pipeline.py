@@ -17,25 +17,23 @@ class RCTMPrePipeline(object):
   def __init__(
                 self,
                 config_filename: str = None,
-                rctm_param_filename: str = None,
                 default_config: str = ''
             ):
             
     # Configuration file intialization
     if config_filename is None:
-        
-      config_filename = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), default_config)
-      logging.info(f'Loading default config: {config_filename}')
+      logging.info('No config file supplied')
+      return
       
     self.conf = self._read_config(config_filename, RCTMConfig)
-    self.RCTM_params = self._read_config(rctm_param_filename, config_class = RCTM_params)
+    self.RCTM_params = self._read_config(self.conf.path_to_RCTM_params, config_class = RCTM_params).__dict__
       
     # Authenticate gcloud session
-    self.storage_client = storage.Client.from_service_account_json(self.conf['gee_key_json'])
+    self.storage_client = storage.Client.from_service_account_json(self.conf.gee_key_json)
     self.bucket = self.storage_client.get_bucket(self.conf.bucket_name)
       
     # create new status file if doesn't already exists
-    self.preprocess_status_path = os.path.join(self.conf['workflows_path'], 'preprocess_status.csv')
+    self.preprocess_status_path = os.path.join(self.conf.workflows_path, 'preprocess_status.csv')
     
     if not os.path.isfile(self.preprocess_status_path):
       preprocess_status = pd.DataFrame(columns = self.PREPROCESS_STATUS_COLS)
@@ -47,12 +45,15 @@ class RCTMPrePipeline(object):
     Read configuration filename and initiate objects
     """
     # Configuration file initialization
-    schema = omegaconf.OmegaConf.structured(config_class)
     conf = omegaconf.OmegaConf.load(filename)
+    conf_dict = omegaconf.OmegaConf.to_container(conf, resolve=True)
+
     try:
-      conf = omegaconf.OmegaConf.merge(schema, conf)
+      conf = config_class(**conf_dict)
+
     except BaseException as err:
       sys.exit(f"ERROR: {err}")
+
     return conf
         
   # -------------------------------------------------------------------------
@@ -98,12 +99,15 @@ class RCTMPrePipeline(object):
     # generates input data for both spinup and transient period
     
     #gen covariates
-    ds = gen_covariates(self.conf.starfm_out_dir, self.conf.covariates_save_dir,  self.conf.RCTM_input_dir, 'RCTM_inputs.nc', self.bucket, '2002-01-01', '2005-12-31', self.conf.path_to_temp_dir, gap_fill = True)
+    ds = gen_covariates(self.conf.starfm_out_dir, self.conf.covariates_save_dir,  self.conf.RCTM_input_dir, 'RCTM_inputs.nc', 
+                        self.bucket, self.conf.RCTM_transient_date_range[0], self.conf.RCTM_transient_date_range[1], self.conf.path_to_temp_dir, gap_fill = True)
     #average indices
-    df = image_average_variables(ds, ['ndvi','srad','vpd','tsoil','sm1','sm2','shortwave_radition','tavg','tmin','prcp','clay'], self.bucket, self.conf.path_to_temp_dir, plot_dir=os.path.join(self.conf.RCTM_input_dir, 'transient_figs/'))
+    df = image_average_variables(ds, ['ndvi','srad','vpd','tsoil','sm1','sm2','shortwave_radition','tavg','tmin','prcp','clay'], self.bucket, self.conf.path_to_temp_dir, 
+                                 plot_dir=os.path.join(self.conf.RCTM_input_dir, 'transient_figs/'))
     df.to_csv('gs://' + self.conf.bucket_name + '/' + self.conf.RCTM_input_dir + 'RCTM_inputs.csv')
     #gen spinup
-    spin_ds = aggregate_for_spinup(ds, self.conf.RCTM_input_dir, 'RCTM_spin_inputs.nc', '2002-01-01', '2005-12-31', self.bucket,  self.conf.path_to_temp_dir, period = 5)
+    spin_ds = aggregate_for_spinup(ds, self.conf.RCTM_input_dir, 'RCTM_spin_inputs.nc', self.conf.RCTM_spinup_date_range[0], self.conf.RCTM_spinup_date_range[1], 
+                                   self.bucket,  self.conf.path_to_temp_dir, period = 5)
     df = image_average_variables(spin_ds, ['ndvi','srad','vpd','tsoil','sm1','sm2','shortwave_radition','tavg','tmin','prcp','clay'], self.bucket, self.conf.path_to_temp_dir, plot_dir=os.path.join(self.conf.RCTM_input_dir, 'spin_figs/'))
     df.to_csv('gs://' + self.conf.bucket_name + '/' + self.conf.RCTM_input_dir + 'RCTM_spin_inputs.csv')
     #get spatial params
@@ -111,9 +115,3 @@ class RCTMPrePipeline(object):
   def gen_RCTM_params(self):
   
     get_spatial_RCTM_params(os.path.join(self.conf.landcover_save_dir, 'NLCD_2019.tif'), os.path.join(self.conf.landcover_save_dir, 'RAP_2019.tif'), self.RCTM_params, self.conf.fused_landcover_outname, self.conf.spatial_param_outname, self.bucket, self.conf.path_to_temp_dir, param_type='starfm')
-    
-#pipe=RCTMPrePipeline(config_filename='/home/amullen/Rangeland-Carbon/examples/config/test_config.yaml', rctm_param_filename='/home/amullen/Rangeland-Carbon/RCTM/templates/RCTM_params.yaml')
-#pipe.smooth_modis()
-#pipe.starfm()
-#pipe.starfm_postprocessing()
-#pipe.gen_RCTM_params()
