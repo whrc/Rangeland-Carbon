@@ -26,11 +26,17 @@ To install the environment:
 conda env create -f rctm.yml
 ```
 
-### Setting python path
+### Setting environment variables
 Make sure to set the PYTHONPATH environment variable to the Rangeland-Carbon directory
 
 ```
 export PYTHONPATH='{...}/Rangeland-Carbon'
+```
+
+We will define another environment variable 'RCTMPATH' that the model requires. This is the path to the RCTM directory.
+
+```
+export RCTMPATH='{...}/Rangeland-Carbon/RCTM'
 ```
 
 ### STARFM setup
@@ -48,7 +54,7 @@ Gao, F., Hilker, T., Zhu, X., Anderson, M. A., Masek, J., Wang, P. and Yang, Y. 
 
 ### Config file
 
-A config file is required to run the model. An example config file is located in examples/config/test_config.yaml
+A config file is required to run the model. Two examples of config files are located in examples/example_configs. **test_config_minimal.yaml** contains all required config variables and their definitions. **test_config.yaml** contains all possible variables that can be defined through the config file.
 
 ## 1. GEE_pipeline.py
    - handles downloading of landsat and modis imagery for input into starfm algorithm, covariate data downloads, and landcover downloads
@@ -58,7 +64,7 @@ A config file is required to run the model. An example config file is located in
 from RCTM.pipelines.GEE_pipeline import GEEPipeline
 
 #initialize downloads pipeline with geometry
-pipe = GEEPipeline(config_filename='/home/amullen/Rangeland-Carbon/examples/config/test_config.yaml')
+pipe = GEEPipeline(config_filename='/home/amullen/Rangeland-Carbon/examples/example_configs/test_config.yaml')
 pipe.init_pipeline_from_geometry() #populates rows for each geometry in workflow status file to dictate pocessing
 ```
 ```init_pipeline_from_geometry()``` will attempt to upload a local .geojson to Earth Engine and populate a local status file to track progress. You can also specify in the config file to use a geometry asset
@@ -90,7 +96,7 @@ Once all imagery, covariates, and landcover datasets are downloaded you may proc
 ```
 from RCTM.pipelines.RCTM_preprocessing_pipeline import RCTMPrePipeline
 
-pipe=RCTMPrePipeline(config_filename='/home/amullen/Rangeland-Carbon/examples/config/test_config.yaml', rctm_param_filename='/home/amullen/Rangeland-Carbon/RCTM/modeling/RCTM_params.yaml')
+pipe=RCTMPrePipeline(config_filename='/home/amullen/Rangeland-Carbon/examples/example_configs/test_config.yaml')
 pipe.smooth_modis()
 pipe.starfm()
 pipe.starfm_postprocessing()
@@ -105,7 +111,7 @@ pipe.gen_RCTM_params()
 ```
 from RCTM.pipelines.RCTM_model_pipeline import RCTMPipeline
 
-pipe=RCTMPipeline(config_filename='/home/amullen/Rangeland-Carbon/examples/config/test_config.yaml')
+pipe=RCTMPipeline(config_filename='/home/amullen/Rangeland-Carbon/examples/example_configs/test_config.yaml')
 pipe.run_RCTM()
 ```
 ## Citing this work
