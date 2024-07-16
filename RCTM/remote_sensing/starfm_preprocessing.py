@@ -175,6 +175,7 @@ def smooth_modis_col(in_modis_dir, out_modis_dir, bucket, path_to_temp_dir, wind
     tgt_image.rio.write_nodata(0, inplace=True)
 
     tgt_image.rio.to_raster(os.path.join(path_to_temp_dir, 'temp_gs_write.tif'), dtype=np.uint16, driver='GTiff')
+
     gs_write_blob(os.path.join(path_to_temp_dir, 'temp_gs_write.tif'), os.path.join(out_modis_dir, tgt_image_name), bucket)
       
   return

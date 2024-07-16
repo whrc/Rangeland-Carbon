@@ -4,7 +4,7 @@ import xarray as xr
 from google.cloud import storage
 import sys
 sys.path.insert(1, '../utils')
-import utils
+from RCTM.utils import utils
 import numpy as np
 import pandas as pd
 import seaborn as sns
