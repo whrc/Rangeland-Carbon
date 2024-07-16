@@ -64,6 +64,8 @@ fused_landcover_outname: 'test_data/landcover/fused_landcover.tif' # gcloud path
 
 ################################### modeling ##########################################
 #model config
+RCTM_spinup_date_range: ['2002-05-01', '2005-12-31']
+RCTM_transient_date_range: ['2002-01-01', '2022-12-31']
 point_mode: False
 spin_years: 100
 run_transient: True

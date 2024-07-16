@@ -21,14 +21,13 @@ path_to_geometry_local: '/home/amullen/Rangeland-Carbon/examples/geometries/test
 ee_geometry_save_dir: 'projects/rangelands-explo-1571664594580/assets/RCTM_test_assets/' #path to folder in which to save ee geometry assets
 
 ## params defining starfm landsat downloads ##
-sfm_imagery_download_date_range: ['2002-01-01', '2003-01-01']
+sfm_imagery_download_date_range: ['2002-01-01', '2006-12-31']
 
 ################################### modeling ##########################################
 #model config
+RCTM_spinup_date_range: ['2002-05-01', '2005-12-31']
+RCTM_transient_date_range: ['2002-01-01', '2006-12-31']
+
 spin_years: 100
 run_transient: True
 init_C_stocks_with_image: False
-    
-#C stock initialization files
-C_stock_inits_yaml: None
-C_stock_init_image: None
