@@ -15,13 +15,8 @@ import fsspec
 import pandas as pd
 import xarrayMannKendall as mk
 from osgeo import gdal, gdalconst
-
-bucket_name='rangelands'
-
-storage_client = storage.Client.from_service_account_json('/home/amullen/Rangeland-Carbon/res/gee_key.json')
-bucket = storage_client.get_bucket(bucket_name)
-path_to_temp = '/home/amullen/temp/'
-            
+import time
+from dask.distributed import Client
 
 def export_ds_to_geotiff_gcloud(ds, out_path, path_to_temp):
 
@@ -112,6 +107,7 @@ def export_change_analysis(ds, out_path, path_to_temp, out_p_val, out_signif):
 
 
 def spatial_analysis_C_stocks(C_stocks_path, path_to_landcover, ranch):
+
   C_stocks = rxr.open_rasterio(C_stocks_path, masked=True)
   landcover = rxr.open_rasterio(path_to_landcover)
   
@@ -151,11 +147,6 @@ def spatial_analysis_C_stocks(C_stocks_path, path_to_landcover, ranch):
 ##################################################################################################################################
 
 #Fluxes
-
-
-print('opening covariates')
-
-
 def spatial_analysis_fluxes(covariates_path, path_to_landcover, ranch):
   covariates = rxr.open_rasterio(covariates_path, masked=True)
   covariates= covariates.sel(time = (covariates['time.year'] != 2023) & (covariates['time.year'] != 2022))
@@ -195,28 +186,84 @@ def spatial_analysis_fluxes(covariates_path, path_to_landcover, ranch):
   site_dfs=pd.concat(site_dfs)
   site_dfs.to_csv(f'gs://rangelands/Ranch_Runs/{ranch}/analysis/flux_timeseries.csv')
 
+def spatial_average_dask(ds, vars):
+  #calculates spatial average
+
+  ds = ds[vars]
+  mean = ds.mean(dim=['x', 'y'])
+  
+  return mean
 #utils.image_average_variables(covariates, ['GPP', 'Reco', 'Ra', 'NEE', 'NPP'], plot_dir='output/RCTM/transient')
 
 
 ####################################################################################################################
-roi_file='/home/amullen/Rangeland-Carbon/res/site_footprints/HLD_tiles.txt'
+#roi_file='/home/amullen/Rangeland-Carbon/res/site_footprints/HLD_tiles.txt'
 
-with open(roi_file) as f:
-  paths = [line.rstrip('\n') for line in f]
+#with open(roi_file) as f:
+#  paths = [line.rstrip('\n') for line in f]
   
-  for path in paths:
+#  for path in paths:
     
-    ranch='/'.join(path.split('/')[-2:])
-    print(ranch)
-    if ranch in ['...']:
-      continue
+#    ranch='/'.join(path.split('/')[-2:])
+#    print(ranch)
+#    if ranch in ['...']:
+#      continue
    
-   
-    
-    C_stocks_path = f'gs://rangelands/Ranch_Runs/{ranch}/results/C_stock_hist_weighted.nc'
-    covariates_path = f'gs://rangelands/Ranch_Runs/{ranch}/results/flux_hist_weighted.nc'
-    path_to_landcover = 'gs://' + bucket.name + f'/Ranch_Runs/{ranch}/landcover/fused_landcover.tif'
-    
-    spatial_analysis_C_stocks(C_stocks_path, path_to_landcover, ranch)
-    spatial_analysis_fluxes(covariates_path, path_to_landcover, ranch)
+#C_stocks_path = f'gs://rangelands/Ranch_Runs/{ranch}/results/C_stock_hist_weighted.nc'
+#covariates_path = f'gs://rangelands/Ranch_Runs/{ranch}/results/flux_hist_weighted.nc'
+#path_to_landcover = 'gs://' + bucket.name + f'/Ranch_Runs/{ranch}/landcover/fused_landcover.tif'
+#    
+#spatial_analysis_C_stocks(C_stocks_path, path_to_landcover, ranch)
+#spatial_analysis_fluxes(covariates_path, path_to_landcover, ranch)
 
+#google storage etc.
+if __name__ == '__main__':
+  
+  bucket_name='rangelands'
+  storage_client = storage.Client.from_service_account_json('/home/amullen/res/gee_key.json')
+  bucket = storage_client.get_bucket(bucket_name)
+  path_to_temp = '/home/amullen/temp/'
+
+  #initiate timer
+  start_time = time.time()
+
+  with Client(n_workers=15, threads_per_worker=1, memory_limit='1.5GB') as client:
+  #if True:
+    #open C stock file
+    C_stocks_path = f'gs://rangelands/Ranch_Runs/MCK/results/C_stock_hist_weighted.nc'
+    C_stocks = rxr.open_rasterio(C_stocks_path, chunks='auto')
+    
+    #3 workers
+    #auto: 1028s
+    #time = 100: DNC
+    #time = 500:
+    #time = 1000: 
+    #no chunks: 437s
+
+    #get doy for each datetime index in file
+    doys = np.array(C_stocks.indexes['time'].dayofyear)
+
+    #create index to bin individual timestamps into 5-day intervals
+    doy_bins_lower = (np.floor((doys-1)/5).astype(np.int16)*5)+1
+
+    #assign coordinates to doy bins
+    C_stocks = C_stocks.assign_coords(doy_bins_lower=('time', doy_bins_lower))
+    C_stocks = C_stocks.swap_dims({'time':'doy_bins_lower'})
+
+    #mean = C_stocks.groupby('doy_bins_lower').mean(dim=['x', 'y'])
+    #std = C_stocks.groupby('doy_bins_lower').std(dim=['x', 'y'])
+    mean = C_stocks.mean(dim=['x', 'y'])
+    std = C_stocks.std(dim=['x', 'y'])
+    sum = C_stocks.sum(dim=['x', 'y'])
+
+    mean_df = mean.to_dataframe()
+    std_df = std.to_dataframe()
+    sum_df = sum.to_dataframe()
+    mean_df.to_csv('MCK_C_stock_means.csv')
+    std_df.to_csv('MCK_C_stock_stds.csv')
+    sum_df.to_csv('MCK_C_stock_sums.csv')
+    
+  #end timer
+  end_time = time.time()
+  elapsed_time = end_time - start_time
+  print(f"Elapsed time: {elapsed_time:.6f} seconds")
