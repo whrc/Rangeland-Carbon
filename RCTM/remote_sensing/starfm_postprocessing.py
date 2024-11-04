@@ -424,7 +424,7 @@ def aggregate_for_spinup(ds, out_dir, out_name, date_min, date_max, bucket, path
   
   #get day of year from datetime index
   doys = np.array(ds.indexes['time'].dayofyear)
-  doy_bins_lower = (np.floor(doys/period).astype(np.int16)*period)+1
+  doy_bins_lower = (np.floor((doys-1)/period).astype(np.int16)*period)+1
   
   ds = ds.assign_coords(doy_bins_lower=('time', doy_bins_lower))
   ds = ds.swap_dims({'time':'doy_bins_lower'})
