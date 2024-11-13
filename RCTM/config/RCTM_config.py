@@ -51,7 +51,8 @@ class RCTMConfig:
     ################ RCTM pipeline params ########################
 
     RCTM_spinup_date_range: List[str] = field(default_factory=lambda: ['2002-01-01', '2005-12-31'])
-    RCTM_transient_date_range: List[str] = field(default_factory=lambda: ['2002-01-01', '2023-12-31'])
+    RCTM_transient_input_gen_date_range: List[str] = field(default_factory=lambda: ['2002-01-01', '2023-12-31'])
+    RCTM_transient_run_date_range: List[str] = None
 
     starfm_source: Optional[str] = os.path.join(os.getenv('RCTMPATH'), 'remote_sensing/starfm_source/')
     starfm_config: Optional[str] = os.path.join(os.getenv('RCTMPATH'), 'config/input_ref.txt')
