@@ -1,0 +1,37 @@
+# This sample config file contains all required controls for running the RCTM process. 
+# There is a more complex verion containing all possible settings 'test_config.yaml'.
+# The main difference between the two is that this version allows for quickly configuring and running the model.
+# Any variable present in the 'test_config.yaml' and not included here can be added to this configuration.
+
+## params defining file i/o locations locally and on the cloud ##
+workflows_path: '/home/amullen/RCTM_benchmark_sites/KFS' #this directory will store all status files that track status of process
+path_to_temp_dir: '/home/amullen/temp/' 
+
+######################################## Google Cloud ############################################
+bucket_name: 'rangelands'
+gcloud_workflow_base_dir: 'RCTM_benchmark_sites/Ameriflux/KFS'
+
+####################################### Google Earth Engine #####################################
+service_account: 'rctm-07dea6fa718fdd0921f124263@rangelands-explo-1571664594580.iam.gserviceaccount.com'
+gee_key_json: '/home/amullen/res/gee_key.json'
+gcloud_project: 'rangelands-explo-1571664594580'
+
+## params defining geometry to process ##
+path_to_existing_ee_geom: 'projects/rangelands-explo-1571664594580/assets/Ameriflux_RS/KFS/KFS'
+
+## params defining starfm landsat downloads ##
+sfm_imagery_download_date_range: ['2002-01-01', '2023-12-31']
+
+################################### modeling ##########################################
+#model config
+RCTM_spinup_date_range: ['2002-05-01', '2005-12-31']
+RCTM_transient_date_range: ['2002-01-01', '2023-12-31']
+
+spin_years: 0
+run_transient: True
+init_C_stocks_with_image: True
+
+C_stock_init_image: 'RCTM_benchmark_sites/Ameriflux/KFS/RCTM_output/spinup/RCTM_C_stocks_spin_output.tif' # gcloud path
+
+transient_C_stock_hist: 'RCTM_benchmark_sites/Ameriflux/KFS/RCTM_output/transient/C_stock_test.nc' # gcloud path
+transient_flux_hist: 'RCTM_benchmark_sites/Ameriflux/KFS/RCTM_output/transient/flux_hist_test.nc' # gcloud path
