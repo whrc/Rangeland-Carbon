@@ -513,7 +513,7 @@ def main(force_pft, point_mode, spin_years, run_transient, transient_date_range,
     
     #utils.image_average_variables(covariates, ['GPP', 'Rh', 'Ra', 'NEE', 'NPP'], plot_dir='output/RCTM/transient')
     total_time_end = time.time()
-    print(f'total elapsed time (s): {np.round(t2-t1, 4)}')
+    print(f'total elapsed time (s): {np.round(total_time_end-total_time_start, 4)}')
   return
   
 if __name__ == '__main__':
