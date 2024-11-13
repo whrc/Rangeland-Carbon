@@ -4,7 +4,7 @@
 # Any variable present in the 'test_config.yaml' and not included here can be added to this configuration.
 
 ## params defining file i/o locations locally and on the cloud ##
-workflows_path: '/home/amullen/RCTM_benchmark_sites/KFS' #this directory will store all status files that track status of process
+workflows_path: '/home/amullen/Rangeland-Carbon/RCTM/tests/KFS' #this directory will store all status files that track status of process
 path_to_temp_dir: '/home/amullen/temp/' 
 
 ######################################## Google Cloud ############################################
@@ -25,7 +25,9 @@ sfm_imagery_download_date_range: ['2002-01-01', '2023-12-31']
 ################################### modeling ##########################################
 #model config
 RCTM_spinup_date_range: ['2002-05-01', '2005-12-31']
-RCTM_transient_date_range: ['2002-01-01', '2023-12-31']
+RCTM_transient_input_gen_date_range: ['2002-01-01', '2023-12-31']
+
+RCTM_transient_run_date_range: ['2002-01-01', '2002-01-25'] #5 timesteps
 
 spin_years: 0
 run_transient: True
@@ -33,5 +35,5 @@ init_C_stocks_with_image: True
 
 C_stock_init_image: 'RCTM_benchmark_sites/Ameriflux/KFS/RCTM_output/spinup/RCTM_C_stocks_spin_output.tif' # gcloud path
 
-transient_C_stock_hist: 'RCTM_benchmark_sites/Ameriflux/KFS/RCTM_output/transient/C_stock_test.nc' # gcloud path
-transient_flux_hist: 'RCTM_benchmark_sites/Ameriflux/KFS/RCTM_output/transient/flux_hist_test.nc' # gcloud path
+transient_C_stock_hist: 'RCTM_benchmark_sites/Ameriflux/KFS/RCTM_output/transient/C_stock_test_t5.nc' # gcloud path
+transient_flux_hist: 'RCTM_benchmark_sites/Ameriflux/KFS/RCTM_output/transient/flux_hist_test_t5.nc' # gcloud path

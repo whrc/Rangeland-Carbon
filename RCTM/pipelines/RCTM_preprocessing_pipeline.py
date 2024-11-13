@@ -100,7 +100,7 @@ class RCTMPrePipeline(object):
     
     #gen covariates
     ds = gen_covariates(self.conf.starfm_out_dir, self.conf.covariates_save_dir,  self.conf.RCTM_input_dir, 'RCTM_inputs.nc', 
-                        self.bucket, self.conf.RCTM_transient_date_range[0], self.conf.RCTM_transient_date_range[1], self.conf.path_to_temp_dir, gap_fill = True)
+                        self.bucket, self.conf.RCTM_transient_input_gen_date_range[0], self.conf.RCTM_transient_input_gen_date_range[1], self.conf.path_to_temp_dir, gap_fill = True)
     #average indices
     df = image_average_variables(ds, ['ndvi','srad','vpd','tsoil','sm1','sm2','shortwave_radition','tavg','tmin','prcp','clay'], self.bucket, self.conf.path_to_temp_dir, 
                                  plot_dir=os.path.join(self.conf.RCTM_input_dir, 'transient_figs/'))

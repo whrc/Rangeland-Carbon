@@ -13,6 +13,7 @@ import argparse
 import os
 import yaml
 import time
+from datetime import datetime as dt
 
 def InitCarbonModel(params, covariates, days=5):
   
@@ -155,7 +156,7 @@ def CarbonModel(C_stocks, Tmult, Wmult, Smult, fsdethg, fsdeths, fallrt, rdrg, r
     end_time = time.time()
     times.append(end_time - start_time)
   
-  print(f'CarbonModel iteration average: {np.mean(times)} seconds')
+  print(f'NEE model iteration average: {np.round(np.mean(times), 4)} s')
   #derive autotrophic respiration from NPP and GPP
   start_time = time.time()
   covariates['Ra'] = covariates['NPP'] - covariates['GPP']
@@ -170,7 +171,7 @@ def CarbonModel(C_stocks, Tmult, Wmult, Smult, fsdethg, fsdeths, fallrt, rdrg, r
   covariates['Ra'] = covariates['Ra']/days
   covariates['NPP'] = covariates['NPP']/days
   end_time = time.time()
-  print(f'CarbonModel final vector calculations took {end_time - start_time} seconds')
+  print(f'NEE model final vector calculations: {np.round(end_time - start_time, 4)} s')
   
   return C_stocks, C_stock_log, covariates
 
@@ -256,25 +257,27 @@ def spinup_RCTM(C_stocks, covariates, params, spinup_years=0, spin_log_period=5,
         
   return covariates, C_stocks, C_stock_hist
 
-def RCTM(C_stocks, covariates, params, spinup_years=0, spin_log_period=1):
-  print('Running RCTM')
-  print('calculating GPP')
+def RCTM(C_stocks, covariates, params):
+  print('calculating sr, fPAR, GPP, changing units:', end=' ')
+  t1 = time.time()
   covariates['ndvi_sr'] = rctmu.calc_sr(covariates['ndvi'])
   covariates['fpar'] = rctmu.calc_fPAR(covariates['ndvi'], params['ndvi_02'], params['ndvi_98'], covariates['ndvi_sr'], params['ndvi_sr_02'], params['ndvi_sr_98'], params['fPAR_min'], params['fPAR_max'])
   covariates['GPP'] = rctmu.calcGPP(params, covariates['tsoil'], covariates['sm2'], covariates['vpd'], covariates['shortwave_radition'], covariates['fpar'])
-  
-  
-  
+
   #Change unit to match with C modeling
   covariates['sm1'] =  covariates['sm1'] * 100
   covariates['sm2'] =  covariates['sm2'] * 100
   covariates['tsoil'] = covariates['tsoil'] + 273.15
+
+  t2 = time.time()
+  print(f'{np.round(t2-t1, 4)} s')
   
   #init carbon model
-  start_time = time.time()
+  print('InitCarbonModel: ', end=' ')
+  t1 = time.time()
   Tmult, Wmult, Smult, fsdethg, fsdeths, fallrt, rdrg, rdrs, rdr, covariates = InitCarbonModel(params, covariates)
-  end_time = time.time()
-  print(f'InitCarbonModel took {end_time - start_time} seconds')
+  t2 = time.time()
+  print(f'{np.round(t2 - t1, 4)} s')
   
   print('NEE model')
   C_stocks, C_stock_log, covariates = CarbonModel(C_stocks, Tmult, Wmult, Smult, fsdethg, fsdeths, fallrt, rdrg, rdrs, rdr, covariates, params, days=5, spinup=False)   
@@ -294,12 +297,14 @@ def mask_variables(dataset):
 
     return dataset
 
-def main(force_pft, point_mode, spin_years, run_transient, init_C_stocks_with_image,
+def main(force_pft, point_mode, spin_years, run_transient, transient_date_range, init_C_stocks_with_image,
        RCTM_params_point, path_to_RCTM_spatial_params, path_to_spin_covariates_point, 
        path_to_spin_covariates_spatial, C_stock_spin_out_path_point, C_stock_spin_out_path,
        C_stock_inits_yaml, C_stock_init_image, spatial_spin_fig_path, transient_covariate_path,
        transient_C_stock_hist, transient_flux_hist, bucket, path_to_temp):
-              
+  
+  total_time_start = time.time()
+
   if point_mode:
     
     if force_pft is None:
@@ -326,9 +331,15 @@ def main(force_pft, point_mode, spin_years, run_transient, init_C_stocks_with_im
   else: #if not running point mode
   
     print('running model in spatial mode')
+    print('-----------------------------')
     #Define parameters - these are calibrated parameters for RCTM v1.0
+
+    print('parsing spatial params:', end=' ')
+    t1 = time.time()
     params = rxr.open_rasterio('gs://' + bucket.name + '/' + path_to_RCTM_spatial_params, masked=True)
     params = rctmu.xr_dataset_to_data_array(params)
+    t2 = time.time()
+    print(f'{np.round(t2-t1, 4)} s')
     
     if force_pft is not None:
     
@@ -342,15 +353,19 @@ def main(force_pft, point_mode, spin_years, run_transient, init_C_stocks_with_im
         params[p].values = np.where(~np.isnan(params[p].values), params_pft[p], np.nan)
     
     #read spinup covariates
-    spin_covariates = rxr.open_rasterio('gs://' + bucket.name + '/' + path_to_spin_covariates_spatial, masked=True)
-    
-    spin_covariates = mask_variables(spin_covariates) #this line consumes a lot of memory!!!
+    if spin_years > 0:
+      print('parsing spinup data')
+      spin_covariates = rxr.open_rasterio('gs://' + bucket.name + '/' + path_to_spin_covariates_spatial, masked=True)
+      spin_covariates = mask_variables(spin_covariates) #this line consumes a lot of memory!!!
     
     #Define initial C pools
     if init_C_stocks_with_image:
-      print('initializing C stocks from image')
+      print('initializing C stocks from image:', end=' ')
+      t1 = time.time()
       C_stocks = rxr.open_rasterio('gs://' + bucket.name + '/' + C_stock_init_image, masked=True)
       C_stocks = rctmu.xr_dataset_to_data_array(C_stocks)
+      t2 = time.time()
+      print(f'{np.round(t2-t1, 4)} s')
       
     else:
       print('initializing C stocks from yaml file')
@@ -362,11 +377,13 @@ def main(force_pft, point_mode, spin_years, run_transient, init_C_stocks_with_im
                   'HOC' : np.full(np.shape(spin_covariates['ndvi'].values[0]), C_stock_inits_yaml['HOC'])
                   }
                   
-    if params.rio.transform()!=spin_covariates.rio.transform():
-      params = params.rio.reproject_match(spin_covariates)
+    
         
   if spin_years > 0: 
-    
+
+    if params.rio.transform()!=spin_covariates.rio.transform():
+      params = params.rio.reproject_match(spin_covariates)
+
     if point_mode:
       #run spinup in point mode
       spin_covariates, C_stocks, C_stock_hist = spinup_RCTM(C_stocks, spin_covariates, params, spinup_years=spin_years, point_mode=point_mode, path_to_temp = path_to_temp, bucket=bucket)
@@ -431,12 +448,34 @@ def main(force_pft, point_mode, spin_years, run_transient, init_C_stocks_with_im
     pass
   
   else:
-    print('reading in covariates') 
+    print('reading in covariates:', end=' ')
+    t1 = time.time() 
     covariates = rxr.open_rasterio('gs://' + bucket.name + '/' + transient_covariate_path, masked=True)
+    covariates_time_min = covariates.indexes['time'].to_datetimeindex().min()
+    covariates_time_max = covariates.indexes['time'].to_datetimeindex().max()
+
+    if params.rio.transform()!=covariates.rio.transform():
+      params = params.rio.reproject_match(covariates)
+
+    # restrict time period if transient date range provided
+    if not transient_date_range is None:
+      if (dt.strptime(transient_date_range[0], '%Y-%m-%d') < covariates_time_min) or (dt.strptime(transient_date_range[1], '%Y-%m-%d') > covariates_time_max):
+        print('invlaid date range, supplied range is {}, input data range is [{}, {}]'.format(transient_date_range,
+                                                                                              dt.strftime(covariates_time_min, '%Y-%m-%d'), 
+                                                                                              dt.strftime(covariates_time_max, '%Y-%m-%d')))
+        print('defaulting to [{}, {}]'.format(dt.strftime(covariates_time_min, '%Y-%m-%d'),
+                                              dt.strftime(covariates_time_max, '%Y-%m-%d')))
+
+      else:
+        covariates = covariates.loc[dict(time=slice(transient_date_range[0], transient_date_range[1]))]
+    
+    t2 = time.time()
+    print(f'{np.round(t2-t1, 4)} s')
     
     crs = covariates.rio.crs.to_wkt()
     transform = covariates.rio.transform()
     
+    print('Running RCTM')
     covariates, C_stocks, C_stock_log = RCTM(C_stocks, covariates, params)
     
     cstock_DataArray = xr.Dataset(data_vars={
@@ -473,6 +512,8 @@ def main(force_pft, point_mode, spin_years, run_transient, init_C_stocks_with_im
     os.remove(os.path.join(path_to_temp, f'temp_fluxes_write_{ts}.nc'))
     
     #utils.image_average_variables(covariates, ['GPP', 'Rh', 'Ra', 'NEE', 'NPP'], plot_dir='output/RCTM/transient')
+    total_time_end = time.time()
+    print(f'total elapsed time (s): {np.round(t2-t1, 4)}')
   return
   
 if __name__ == '__main__':
@@ -482,6 +523,7 @@ if __name__ == '__main__':
   parser.add_argument("--point_mode", help="directory to output STARFM", const=False)
   parser.add_argument("--spin_years", help="directory to output STARFM", const=0)
   parser.add_argument("--run_transient", help="directory to output STARFM", const=True)
+  parser.add_argument("--transient_date_range", help="date range to run transient period", const=True)
   parser.add_argument("--init_C_stocks_with_image", help="directory to output STARFM", const=False)
   parser.add_argument("--ranch", help="directory to output STARFM", const='')
   
@@ -505,7 +547,7 @@ if __name__ == '__main__':
 
   args=parser.parse_args()
   
-  main(args.force_pft, args.point_mode, args.spin_years, args.args.run_transient, args.init_C_stocks_with_image, args.ranch,
+  main(args.force_pft, args.point_mode, args.spin_years, args.args.run_transient,args.args.transient_date_range, args.init_C_stocks_with_image, args.ranch,
        args.path_to_RCTM_params, args.path_to_RCTM_spatial_params, args.path_to_spin_covariates_point, 
        args.path_to_spin_covariates_spatial, args.C_stock_spin_out_path_point, args.C_stock_spin_out_path,
        args.C_stock_inits_yaml, args.C_stock_init_image, args.spatial_spin_fig_path, args.transient_covariate_path,
