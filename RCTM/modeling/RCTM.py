@@ -93,10 +93,10 @@ def CarbonModel(C_stocks, Tmult, Wmult, Smult, fsdethg, fsdeths, fallrt, rdrg, r
     covariates['Rh'] = ([time_index, 'y', 'x'], np.zeros(np.shape(covariates['GPP'])))
     
   covariates['Rh'][:] = np.nan
-  
+  times=[]
   #iterate time steps
   for i in range(0, len(covariates.indexes[time_index])):
-  
+    start_time = time.time()
     if spinup==False:
       print(covariates.indexes[time_index][i])
     
@@ -151,8 +151,13 @@ def CarbonModel(C_stocks, Tmult, Wmult, Smult, fsdethg, fsdeths, fallrt, rdrg, r
     C_stock_log['BGL'].append(C_stocks['BGL'])
     C_stock_log['POC'].append(C_stocks['POC'])
     C_stock_log['HOC'].append(C_stocks['HOC'])
-    
+
+    end_time = time.time()
+    times.append(end_time - start_time)
+  
+  print(f'CarbonModel iteration average: {np.mean(times)} seconds')
   #derive autotrophic respiration from NPP and GPP
+  start_time = time.time()
   covariates['Ra'] = covariates['NPP'] - covariates['GPP']
   
   #Net ecosystem exchange
@@ -164,6 +169,8 @@ def CarbonModel(C_stocks, Tmult, Wmult, Smult, fsdethg, fsdeths, fallrt, rdrg, r
   covariates['Rh'] = covariates['Rh']/days
   covariates['Ra'] = covariates['Ra']/days
   covariates['NPP'] = covariates['NPP']/days
+  end_time = time.time()
+  print(f'CarbonModel final vector calculations took {end_time - start_time} seconds')
   
   return C_stocks, C_stock_log, covariates
 
@@ -264,7 +271,10 @@ def RCTM(C_stocks, covariates, params, spinup_years=0, spin_log_period=1):
   covariates['tsoil'] = covariates['tsoil'] + 273.15
   
   #init carbon model
+  start_time = time.time()
   Tmult, Wmult, Smult, fsdethg, fsdeths, fallrt, rdrg, rdrs, rdr, covariates = InitCarbonModel(params, covariates)
+  end_time = time.time()
+  print(f'InitCarbonModel took {end_time - start_time} seconds')
   
   print('NEE model')
   C_stocks, C_stock_log, covariates = CarbonModel(C_stocks, Tmult, Wmult, Smult, fsdethg, fsdeths, fallrt, rdrg, rdrs, rdr, covariates, params, days=5, spinup=False)   
