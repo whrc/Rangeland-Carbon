@@ -37,3 +37,5 @@ C_stock_init_image: 'RCTM_benchmark_sites/Ameriflux/KFS/RCTM_output/spinup/RCTM_
 
 transient_C_stock_hist: 'RCTM_benchmark_sites/Ameriflux/KFS/RCTM_output/transient/C_stock_test_t5.nc' # gcloud path
 transient_flux_hist: 'RCTM_benchmark_sites/Ameriflux/KFS/RCTM_output/transient/flux_hist_test_t5.nc' # gcloud path
+
+log_path_gcloud: 'RCTM_benchmark_sites/Ameriflux/KFS/RCTM_output/transient/test_t5.log'

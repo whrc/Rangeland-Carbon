@@ -14,6 +14,7 @@ import os
 import yaml
 import time
 from datetime import datetime as dt
+import logging
 
 def InitCarbonModel(params, covariates, days=5):
   
@@ -66,7 +67,7 @@ def get_time_index(indices):
     print('uncertain time index')
     return ''
   
-def CarbonModel(C_stocks, Tmult, Wmult, Smult, fsdethg, fsdeths, fallrt, rdrg, rdrs, rdr, covariates, params, days=5, spinup=False, point_mode=False):
+def CarbonModel(C_stocks, Tmult, Wmult, Smult, fsdethg, fsdeths, fallrt, rdrg, rdrs, rdr, covariates, params, days=5, spinup=False, point_mode=False, log=None):
   
   #run the carbon model
   C_stock_log = {
@@ -157,6 +158,8 @@ def CarbonModel(C_stocks, Tmult, Wmult, Smult, fsdethg, fsdeths, fallrt, rdrg, r
     times.append(end_time - start_time)
   
   print(f'NEE model iteration average: {np.round(np.mean(times), 4)} s')
+  if not log is None:
+    log.profile(f'[NEE model iteration average (s): {np.round(np.mean(times), 4)}]')
   #derive autotrophic respiration from NPP and GPP
   start_time = time.time()
   covariates['Ra'] = covariates['NPP'] - covariates['GPP']
@@ -172,6 +175,8 @@ def CarbonModel(C_stocks, Tmult, Wmult, Smult, fsdethg, fsdeths, fallrt, rdrg, r
   covariates['NPP'] = covariates['NPP']/days
   end_time = time.time()
   print(f'NEE model final vector calculations: {np.round(end_time - start_time, 4)} s')
+  if not log is None:
+    log.profile(f'[NEE model final vector calculations (s): {np.round(np.mean(times), 4)}]')
   
   return C_stocks, C_stock_log, covariates
 
@@ -250,14 +255,14 @@ def spinup_RCTM(C_stocks, covariates, params, spinup_years=0, spin_log_period=5,
           utils.gs_write_blob(os.path.join(path_to_temp, f'temp_C_stocks_write_{ts}.tif'), save_path, bucket)
           os.remove(os.path.join(path_to_temp, f'temp_C_stocks_write_{ts}.tif'))
           
-    C_stocks, C_stock_log, covariates = CarbonModel(C_stocks, Tmult, Wmult, Smult, fsdethg, fsdeths, fallrt, rdrg, rdrs, rdr, covariates, params, days=5, spinup=True, point_mode=point_mode)
+    C_stocks, C_stock_log, covariates = CarbonModel(C_stocks, Tmult, Wmult, Smult, fsdethg, fsdeths, fallrt, rdrg, rdrs, rdr, covariates, params, days=5, spinup=True, point_mode=point_mode, log=log)
     
         
   C_stock_hist = {'year': hist_years, 'AGB': AGB_stock_hist, 'AGL': AGL_stock_hist, 'BGB': BGB_stock_hist, 'BGL': BGL_stock_hist, 'POC': POC_stock_hist, 'HOC': HOC_stock_hist}
         
   return covariates, C_stocks, C_stock_hist
 
-def RCTM(C_stocks, covariates, params):
+def RCTM(C_stocks, covariates, params, log = None):
   print('calculating sr, fPAR, GPP, changing units:', end=' ')
   t1 = time.time()
   covariates['ndvi_sr'] = rctmu.calc_sr(covariates['ndvi'])
@@ -271,6 +276,8 @@ def RCTM(C_stocks, covariates, params):
 
   t2 = time.time()
   print(f'{np.round(t2-t1, 4)} s')
+  if not log is None:
+    log.profile(f'[calculating sr, fPAR, GPP, changing units (s): {np.round(t2-t1, 4)}]')
   
   #init carbon model
   print('InitCarbonModel: ', end=' ')
@@ -278,9 +285,12 @@ def RCTM(C_stocks, covariates, params):
   Tmult, Wmult, Smult, fsdethg, fsdeths, fallrt, rdrg, rdrs, rdr, covariates = InitCarbonModel(params, covariates)
   t2 = time.time()
   print(f'{np.round(t2 - t1, 4)} s')
+
+  if not log is None:
+    log.profile(f'[InitCarbonModel (s): {np.round(t2-t1, 4)}]')
   
   print('NEE model')
-  C_stocks, C_stock_log, covariates = CarbonModel(C_stocks, Tmult, Wmult, Smult, fsdethg, fsdeths, fallrt, rdrg, rdrs, rdr, covariates, params, days=5, spinup=False)   
+  C_stocks, C_stock_log, covariates = CarbonModel(C_stocks, Tmult, Wmult, Smult, fsdethg, fsdeths, fallrt, rdrg, rdrs, rdr, covariates, params, days=5, spinup=False, log=log)   
   
   return covariates, C_stocks, C_stock_log
 
@@ -297,12 +307,27 @@ def mask_variables(dataset):
 
     return dataset
 
+
+
 def main(force_pft, point_mode, spin_years, run_transient, transient_date_range, init_C_stocks_with_image,
        RCTM_params_point, path_to_RCTM_spatial_params, path_to_spin_covariates_point, 
        path_to_spin_covariates_spatial, C_stock_spin_out_path_point, C_stock_spin_out_path,
        C_stock_inits_yaml, C_stock_init_image, spatial_spin_fig_path, transient_covariate_path,
-       transient_C_stock_hist, transient_flux_hist, bucket, path_to_temp):
+       transient_C_stock_hist, transient_flux_hist, bucket, path_to_temp, log_level=logging.ERROR, log_path_gcloud = None):
   
+  try:
+    utils.addLoggingLevel('PROFILE', logging.DEBUG - 5, 'profile')
+  except:
+    pass
+  
+  log_path_local=os.path.join(path_to_temp,'RCTM_'+dt.now().strftime('%Y-%m-%d_%H%M%S')+'.log')
+  log = logging.getLogger(__name__)
+  log.setLevel(logging.PROFILE)
+  log_handler = logging.FileHandler(log_path_local, mode='w')
+  log_formatter = logging.Formatter('%(name)s %(asctime)s %(levelname)s %(message)s')
+  log_handler.setFormatter(log_formatter)
+  log.addHandler(log_handler)
+ 
   total_time_start = time.time()
 
   if point_mode:
@@ -340,6 +365,7 @@ def main(force_pft, point_mode, spin_years, run_transient, transient_date_range,
     params = rctmu.xr_dataset_to_data_array(params)
     t2 = time.time()
     print(f'{np.round(t2-t1, 4)} s')
+    log.profile(f'[parsing spatial params (s): {np.round(t2-t1, 4)}]')
     
     if force_pft is not None:
     
@@ -366,6 +392,7 @@ def main(force_pft, point_mode, spin_years, run_transient, transient_date_range,
       C_stocks = rctmu.xr_dataset_to_data_array(C_stocks)
       t2 = time.time()
       print(f'{np.round(t2-t1, 4)} s')
+      log.profile(f'[initializing C stocks from image (s): {np.round(t2-t1, 4)}]')
       
     else:
       print('initializing C stocks from yaml file')
@@ -391,7 +418,6 @@ def main(force_pft, point_mode, spin_years, run_transient, transient_date_range,
       #values is C_stocks dict are xarray DataArrays, so we need to extrack the numerical  values
       for key in C_stocks.keys():
         C_stocks[key] = float(C_stocks[key].values.mean())
-      print(C_stocks)
       
       #write final C stocks to yaml
       ts = '_'.join(str(time.time()).split('.'))
@@ -471,12 +497,13 @@ def main(force_pft, point_mode, spin_years, run_transient, transient_date_range,
     
     t2 = time.time()
     print(f'{np.round(t2-t1, 4)} s')
+    log.profile(f'[reading in covariates (s): {np.round(t2-t1, 4)}]')
     
     crs = covariates.rio.crs.to_wkt()
     transform = covariates.rio.transform()
     
     print('Running RCTM')
-    covariates, C_stocks, C_stock_log = RCTM(C_stocks, covariates, params)
+    covariates, C_stocks, C_stock_log = RCTM(C_stocks, covariates, params, log)
     
     cstock_DataArray = xr.Dataset(data_vars={
                                              'AGB':(('time', 'y', 'x'), C_stock_log['AGB']),
@@ -514,6 +541,11 @@ def main(force_pft, point_mode, spin_years, run_transient, transient_date_range,
     #utils.image_average_variables(covariates, ['GPP', 'Rh', 'Ra', 'NEE', 'NPP'], plot_dir='output/RCTM/transient')
     total_time_end = time.time()
     print(f'total elapsed time (s): {np.round(total_time_end-total_time_start, 4)}')
+    log.profile(f'[total elapsed time (s): {np.round(total_time_end-total_time_start, 4)}]')
+
+    if not log_path_gcloud is None:
+      utils.gs_write_blob(log_path_local, log_path_gcloud, bucket)
+  
   return
   
 if __name__ == '__main__':
