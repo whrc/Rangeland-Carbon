@@ -102,6 +102,7 @@ class RCTMConfig:
     #transient results output
     transient_C_stock_hist: Optional[str] = None
     transient_flux_hist: Optional[str] = None
+    log_path_gcloud: Optional[str] = None
 
     def __post_init__(self):
         

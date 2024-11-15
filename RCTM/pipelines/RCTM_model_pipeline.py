@@ -57,7 +57,6 @@ class RCTMPipeline(object):
 
   def run_RCTM(self):
     ## runs model ##
-    
     main(force_pft=self.conf.force_pft, 
          point_mode=self.conf.point_mode, 
          spin_years=self.conf.spin_years, 
@@ -77,5 +76,6 @@ class RCTMPipeline(object):
          transient_C_stock_hist = self.conf.transient_C_stock_hist, 
          transient_flux_hist = self.conf.transient_flux_hist,
          bucket = self.bucket,
-         path_to_temp = self.conf.path_to_temp_dir)
+         path_to_temp = self.conf.path_to_temp_dir,
+         log_path_gcloud = self.conf.log_path_gcloud)
 
