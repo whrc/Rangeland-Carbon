@@ -6,7 +6,7 @@ import sys
 
 def get_latest_tag():
     try:
-        subprocess.run(['git', 'fetch', '--tags'], check=True)
+        subprocess.run(['git', 'fetch', '-p', '-P'], check=True)
         # Get the most recent tag sorted by version
         result = subprocess.run(
             ['git', 'tag', '-l', 'v*', '--sort=-v:refname'], 
