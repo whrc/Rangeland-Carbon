@@ -1,0 +1,8 @@
+{
+  "version": "python-semantic-release",
+  "branch": "main",
+  "upload_to_pypi": false,
+  "github": {
+    "release": true  // Enable GitHub Releases
+  }
+}
