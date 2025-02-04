@@ -5,7 +5,6 @@
 
 ## params defining file i/o locations locally and on the cloud ##
 workflows_path: '/home/amullen/Rangeland-Carbon/examples/workflows/test_single_poly/' #this directory will store all status files that track status of process
-path_to_temp_dir: '/home/amullen/temp/' 
 
 ######################################## Google Cloud ############################################
 bucket_name: 'rangelands'

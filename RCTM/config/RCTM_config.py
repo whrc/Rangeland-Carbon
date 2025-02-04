@@ -1,6 +1,7 @@
 from typing import List, Optional
 from dataclasses import dataclass, field
 import os
+import tempfile
 
 @dataclass
 class RCTMConfig:
@@ -11,7 +12,7 @@ class RCTMConfig:
     ############### setup params #########################
     
     workflows_path: str
-    path_to_temp_dir: str
+    path_to_temp_dir: str = field(default_factory=tempfile.gettempdir())
     
     bucket_name: str
     gcloud_workflow_base_dir: str
